@@ -5,3 +5,7 @@ info:
     This API is the backbone of the
     texting app WASA-text.
   version: 0.0.1
+paths:
+  /conversation:
+    post:
+    
