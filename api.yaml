@@ -5,6 +5,120 @@ info:
     This API is the backbone of the
     texting app WASA-text.
   version: 0.0.1
+components:
+  schemas:
+    conversation:
+      title: Conversation
+      description: "This object represent a 1-1 or group conversation"
+      type: object
+      properties:
+        id:
+          description: Unique conversation identifier
+          type: integer
+          example: 85723
+          readOnly: true
+        members:
+          description: List od user IDs in the conversation
+          type: array
+          items:
+            type: string
+            example: ["abcdef012345","gfkjskj20392"]
+        createdAt:
+          description: Timestamp when the conversation was created
+          type: string
+          format: date-time
+          example: "2024-10-15T10:00:00Z"
+        timeStamp:
+          description: Timestamp when the conversation was last updated with a new message
+          type: string
+          format: date-time
+          example: "2024-11-15T11:00:00Z"
+        lastMessage:
+          description: Last message sent in the conversation, can be used as conv. preview
+          type: string
+          example: "Hello everyone!"
+        photo:
+          type: string
+          description: URL to the coversation's photo
+          example: "https://example.com/photos/user123.jpg"
+      required:
+        - id
+        - members
+        - createdAt
+    user:
+      title: User
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the user.
+          example: "user123"
+        name:
+          type: string
+          description: Name of the user.
+          example: "Maria"
+        photo:
+          type: string
+          description: URL to the user's profile photo.
+          example: "https://example.com/photos/user123.jpg"
+      required:
+        - id
+        - name
+    message:
+      title: Message
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the message.
+          example: "msg123"
+        conversationId:
+          type: integer
+          description: The ID of the conversation this message belongs to.
+          example: "12345"
+        senderId:
+          type: string
+          description: The ID of the user who sent the message.
+          example: "abcdef12345"
+        type:
+          type: string
+          description: The type of message content.
+          enum: [text, image, gif]
+          example: "image"
+        content:
+          type: string
+          description: The text content of the message (for `text` type).
+          example: "Hello, how are you?"
+        mediaUrl:
+          type: string
+          description: URL to the media file (for `image` or `gif` type).
+          example: "https://example.com/media/image123.jpg"
+        timestamp:
+          type: string
+          format: date-time
+          description: The time the message was sent.
+          example: "2024-11-15T10:00:00Z"
+        isReceived:
+          type: boolean
+          description: Indicates if the message has been received (by all users in the conversation).
+          example: true
+        isRead:
+          type: boolean
+          description: Indicates if the message has been read (by all users in the conversation).
+          example: true
+      required:
+        - id
+        - conversationId
+        - senderId
+        - type
+        - timestamp
+        # If 'type' is 'text', ensure 'content' is provided and 'mediaUrl' is null or ignored.
+        # If 'type' is 'image' or 'gif', ensure 'mediaUrl' is provided and valid.
+
+
+
+
+          
 paths:
   /session:
     post:
@@ -42,6 +156,9 @@ paths:
                   identifier:
                     type: string # Change this to "integer" if you use integer identifiers
                     example: "abcdef012345"
-
-  
-    
+  /users:
+    post:
+  /conversations:
+    post:
+  /messages:
+    post:
