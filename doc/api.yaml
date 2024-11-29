@@ -7,7 +7,7 @@ info:
     Connect with your friends effortlessly using WASAText! Send and receive messages, whether one-on-one
     or in groups, all from the convenience of your PC. Enjoy seamless conversations with text or GIFs and
     easily stay in touch through your private chats or group discussions.
-  version: 0.0.1
+  version: "1.0.0"
 
 tags:
   - name: "Login"
@@ -35,7 +35,7 @@ components:
   schemas:
     conversation:
       title: Conversation
-      description: "This object represent a 1-1 or group conversation"
+      description: "This object represent a 1-1 conversation"
       type: object
       properties:
         id:
@@ -43,12 +43,17 @@ components:
           type: integer
           example: 85723
           readOnly: true
+        numberOfMembers:
+          type: integer
+          minimum: 2
+          maximum: 2
         members:
           description: List od user IDs in the conversation
           type: array
           items:
             type: string
-            example: ["abcdef012345","gfkjskj20392"]
+            example: "abcdef012345"
+          example: ["abcdef012345","gfkjskj20392"]
         createdAt:
           description: Timestamp when the conversation was created
           type: string
@@ -71,18 +76,62 @@ components:
         - id
         - members
         - createdAt
+    
+    group:
+      title: Group
+      description: "This object represent group conversation"
+      type: object
+      properties:
+        id:
+          description: Unique group identifier
+          type: integer
+          example: 85723
+          readOnly: true
+        numberOfMembers:
+          type: integer
+          minimum: 1
+          maximum: 99
+        members:
+          description: List od user IDs in the group
+          type: array
+          items:
+            type: string
+            example: "abcdef012345"
+          example: ["abcdef012345","gfkjskj20392"]
+        createdAt:
+          description: Timestamp when the conversation was created
+          type: string
+          format: date-time
+          example: "2024-10-15T10:00:00Z"
+        timeStamp:
+          description: Timestamp when the conversation was last updated with a new message
+          type: string
+          format: date-time
+          example: "2024-11-15T11:00:00Z"
+        lastMessage:
+          description: Last message sent in the conversation, can be used as conv. preview
+          type: string
+          example: "Hello everyone!"
+        photo:
+          type: string
+          description: URL to the coversation's photo
+          example: "https://example.com/photos/user123.jpg"
+      required:
+        - id
+        - members
+        - createdAt
+
     user:
       title: User
+      description: "This object represents the content of a user profile"
       type: object
       properties:
         id:
           type: string
           description: Unique identifier for the user.
           example: "user123"
-        name:
-          type: string
-          description: Name of the user.
-          example: "Maria"
+        name: 
+          $ref: '#/components/schemas/name'
         photo:
           type: string
           description: URL to the user's profile photo.
@@ -90,6 +139,32 @@ components:
       required:
         - id
         - name
+
+    name:
+      title: Name format
+      type: object
+      properties:
+        name:
+          description: Name of the user.
+          example: "Maria"
+          minLength: 3
+          maxLength: 16
+
+    userList:
+      title: User List
+      type: object
+      properties:
+        total:
+          type: integer
+          minimum: 0
+          maximum: 99
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/user'
+      required: 
+        - users
+    
     message:
       title: Message
       type: object
@@ -156,6 +231,8 @@ components:
               code:
                 description: Code error
                 type: integer
+                minimum: 0
+                maximum: 600
                 enum: [400, 401, 403, 404, 500]
                 example: 404
               reason:
@@ -207,7 +284,10 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
 
-
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
 
           
 paths:
@@ -228,11 +308,7 @@ paths:
               type: object
               properties:
                 name:
-                  type: string
-                  example: Maria
-                  pattern: 'ˆ.*?$'
-                  minLength: 3
-                  maxLength: 16
+                  $ref: '#/components/schemas/name'
               required:
                 - name
       responses:
@@ -247,18 +323,119 @@ paths:
                     type: string # Change this to "integer" if you use integer identifiers
                     example: "abcdef012345"
   /users:
-  /users/{user}:
-  /users/{user}/username:
-  /users/{user}/userPicture:
-  /users/{user}/conversations:
-  /users/{user}/conversations/{conversation}:
-  /users/{user}/conversations/{conversation}/messages:
-  /users/{user}/conversations/{conversation}/messages/{lastMessage}:
-  /users/{user}/conversations/{conversation}/messages/{message}:
-  /users/{user}/conversations/{conversation}/messages/{message}/reactions:
-  /users/{user}/conversations/{conversation}/messages/{message}/reactions/{reaction}:
+    get:
+      tags: [User]
+      summary: Retrieve a list of users (users who include the name in the query)
+      description: Fetches a list of all registered users (based on the query)
+      operationId: getUsers
+      parameters:
+        - name: searched-user 
+          in: query 
+          required: true
+          description: the query contains the name of the user you are looking for
+          schema: 
+            $ref: '#/components/schemas/name'
+            
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: a list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/userList'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
 
-  /users/{user}/groups:
-  /users/{user}/groups/{group}:
-  /users/{user}/groups/{group}/groupPicture:
+  /users/{userId}/username:
+    put:
+      tags: [User]
+      summary: Update your own username
+      description: |
+        Take a name from the requestBody, then replace the
+        username prviously used from the utent with the new one
+      operationId: setMyUserName
+      parameters:
+        - name: userId
+          in: path
+          description: Unique Identifier of the user
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: New username chosen
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_name: 
+                  $ref: '#/components/schemas/name'
+      responses:
+        '200':
+          description: Username updated successfully
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Username updated successfully"
+                  user:
+                    $ref: '#/components/schemas/user'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+
+  /users/{userId}/photo:
+    put:
+      tags: [User]
+      summary: Update your own profile picture
+      description: |
+        Take an image from the requestBody, then replace the
+        profile picture prviously used from the utent with the new one
+      operationId: setMyPhoto
+      parameters:
+        - name: userId
+          in: path
+          description: Unique Identifier of the user
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: New profile picture chosen
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_photo: 
+                  type: string
+                  description: URL to the coversation's photo
+                  example: "https://example.com/photos/user123.jpg"
+      responses:
+        '200':
+          description: Proile picture updated successfully
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Profile picture updated successfully"
+                  user:
+                    $ref: '#/components/schemas/user'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+    
 
