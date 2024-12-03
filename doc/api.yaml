@@ -9,6 +9,8 @@ info:
     easily stay in touch through your private chats or group discussions.
   version: "1.0.0"
 
+# ------------------------------------------------------------------------------------------
+# TAGS -------------------------------------------------------------------------------------
 tags:
   - name: "Login"
     description: |
@@ -29,20 +31,26 @@ tags:
     description: |
       Operations acting on comment of messages
 
-
-
+# -----------------------------------------------------------------------------------------
+# COMPONENTS SCHEMAS ----------------------------------------------------------------------
 components:
   schemas:
+    id:
+      title: ID - identification
+      description: General identification string (used for example for users, groups or conversation)
+      type: string
+      example: 'abcd1234'
+      minLength: 1
+      maxLength: 99
+      readOnly: true
+
     conversation:
       title: Conversation
       description: "This object represent a 1-1 conversation"
       type: object
       properties:
         id:
-          description: Unique conversation identifier
-          type: integer
-          example: 85723
-          readOnly: true
+          $ref: '#/components/schemas/id'
         numberOfMembers:
           type: integer
           minimum: 2
@@ -83,10 +91,7 @@ components:
       type: object
       properties:
         id:
-          description: Unique group identifier
-          type: integer
-          example: 85723
-          readOnly: true
+          $ref: '#/components/schemas/id'
         numberOfMembers:
           type: integer
           minimum: 1
@@ -127,9 +132,7 @@ components:
       type: object
       properties:
         id:
-          type: string
-          description: Unique identifier for the user.
-          example: "user123"
+          $ref: '#/components/schemas/id'
         name: 
           $ref: '#/components/schemas/name'
         photo:
@@ -164,23 +167,19 @@ components:
             $ref: '#/components/schemas/user'
       required: 
         - users
+      example:
+
     
     message:
       title: Message
       type: object
       properties:
         id:
-          type: string
-          description: Unique identifier for the message.
-          example: "msg123"
+          $ref: '#/components/schemas/id'
         conversationId:
-          type: integer
-          description: The ID of the conversation this message belongs to.
-          example: "12345"
+          $ref: '#/components/schemas/id'
         senderId:
-          type: string
-          description: The ID of the user who sent the message.
-          example: "abcdef12345"
+          $ref: '#/components/schemas/id'
         type:
           type: string
           description: The type of message content.
@@ -216,6 +215,36 @@ components:
         # If 'type' is 'text', ensure 'content' is provided and 'mediaUrl' is null or ignored.
         # If 'type' is 'image' or 'gif', ensure 'mediaUrl' is provided and valid.
     
+    messageList:
+      title: List of messages
+      type: object
+      properties:
+        total: 
+          type: integer
+          minimum: 1
+          maximum: 9999
+        messages:
+          type: array
+          items: 
+            $ref: '#/components/schemas/message'
+      required:
+        - messages
+
+    conversationList:
+      title: Conversation List
+      type: object
+      properties:
+        total:
+          type: integer
+          minimum: 0
+          maximum: 99
+        conversations:
+          type: array
+          items:
+            $ref: '#/components/schemas/conversation'
+      required: 
+        - conversations
+
      # Used for the Error responses (40x and 50x)
     Error:
       description: Object describe an error with the code and the message
@@ -257,6 +286,8 @@ components:
       required:
         - errors
 
+# -----------------------------------------------------------------------------------------
+# RESPONSES SCHEMAS -----------------------------------------------------------------------
   responses:
     BadRequest:
       description: The request was not compliant with the documentation (eg. missing fields, etc)
@@ -289,7 +320,40 @@ components:
       type: http
       scheme: bearer
 
-          
+ # PARAMETERS SCHEMAS ----------------––----------------––----------------––
+ # ----------------––----------------––----------------––----------------––         
+  parameters:
+    userId:
+      name: userId
+      in: path
+      required: true
+      description: The id of the utent who want execute the opreation defined
+      schema: { $ref: "#/components/schemas/id" }
+    groupId:
+      name: groupId
+      in: path
+      required: true
+      description: The id of the group in which the user want to use operations
+      schema: { $ref: "#/components/schemas/id" }
+    conversationId:
+      name: conversationId
+      in: path
+      required: true
+      description: ID of the user to start a conversation with (?)
+      schema: { $ref: "#/components/schemas/id" }
+    messageId:
+      name: messageId
+      in: path
+      required: true
+      description: ID of the message with which the user wants to use operations
+      schema: { $ref: "#/components/schemas/id" }
+    reactionId:
+      name: reactionId
+      in: path
+      required: true
+      description: ID of the comment of a message
+      schema: { $ref: "#/components/schemas/id" }
+
 paths:
   /session:
     post:
@@ -322,6 +386,9 @@ paths:
                   identifier:
                     type: string # Change this to "integer" if you use integer identifiers
                     example: "abcdef012345"
+
+# -----------------------------------------------------------------------------------------
+# USER OPERATIONS -------------------------------------------------------------------------
   /users:
     get:
       tags: [User]
@@ -437,5 +504,79 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "500": { $ref: "#/components/responses/InternalServerError" }
-    
+
+# ----------------------------------------------------------------------------------------    
+# CONVERSATION OPERATIONS ----------------------------------------------------------------
+  /user/{userId}/conversations:
+    get:
+      tags: [Conversation]
+      summary: Get a list of available conversations
+      description: Get the list of all conversations a specified user is part of
+      operationId: getMyConversations
+      parameters:
+        - name: userId
+          in: path
+          description: Unique Identifier of the user
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Get back the list of conversations of a user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/conversationList'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+  
+  /user/{userId}/conversations/{conversationId}:
+    get:
+      tags: [Conversation]
+      summary: Get a specified conversation with another user
+      description: |
+        Get a conversation with another user by using 
+        the conversation ID as a parameter
+      operationId: getConversation
+      parameters:
+        - $ref: '#/components/parameters/userId'
+        - $ref: '#/components/parameters/conversationId'
+      responses:
+        '200':
+          description: Get back a preview of the conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/conversation'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+ 
+  /user/{userId}/conversations/{conversationId}/messages:
+    get:
+      tags: [Conversation, Message]
+      summary: Fetch the messages inside a conversation
+      description: |
+        Upon entering a specific conversation, 
+        show all messages
+      parameters:
+        - $ref: '#/components/parameters/userId'
+        - $ref: '#/components/parameters/conversationId'
+      responses:
+        '200':
+          description: Get the list of all messages
+          content: 
+            application/json:
+              schema:
+                $ref: '#/components/schemas/messageList'
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+
+        
+      
 
