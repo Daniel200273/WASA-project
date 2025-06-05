@@ -1,378 +1,60 @@
-openapi: 3.0.0
-servers:
-  - url: "http://localhost:3000"
+openapi: 3.0.3
 info:
-  title: WASA-text
-  description: |
-    Connect with your friends effortlessly using WASAText! Send and receive messages, whether one-on-one
-    or in groups, all from the convenience of your PC. Enjoy seamless conversations with text or GIFs and
-    easily stay in touch through your private chats or group discussions.
+  title: WASAText API
+  description: |-
+    WASAText messaging application API.
+    Connect with your friends effortlessly using WASAText! Send and receive messages, 
+    whether one-on-one or in groups, all from the convenience of your PC.
   version: "1.0.0"
+  contact:
+    name: Emanuele Panizzi, Enrico Bassetti
 
-# ------------------------------------------------------------------------------------------
-# TAGS -------------------------------------------------------------------------------------
+servers:
+  - url: http://localhost:3000/v1
+    description: Development server
+
 tags:
-  - name: "Login"
-    description: |
-      Session of a user who logged in
-  - name: "User"
-    description: |
-      Operations that access to user information (like username and photo picture)
-  - name: "Conversation"
-    description: |
-      Operations acting on conversations
-  - name: "Group"
-    description: |
-      Operations acting on groups
-  - name: "Message"
-    description: |
-      Operations acting on messages
-  - name: "Comment"
-    description: |
-      Operations acting on comment of messages
+  - name: Authentication
+    description: User authentication endpoints
+  - name: User Management
+    description: User profile and search operations
+  - name: Conversations
+    description: Conversation management endpoints
+  - name: Messages
+    description: Message operations
+  - name: Groups
+    description: Group chat management endpoints
 
-# -----------------------------------------------------------------------------------------
-# COMPONENTS SCHEMAS ----------------------------------------------------------------------
-components:
-  schemas:
-    id:
-      title: ID - identification
-      description: General identification string (used for example for users, groups or conversation)
-      type: string
-      example: 'abcd1234'
-      minLength: 1
-      maxLength: 99
-      readOnly: true
-
-    conversation:
-      title: Conversation
-      description: "This object represent a 1-1 conversation"
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/id'
-        numberOfMembers:
-          type: integer
-          minimum: 2
-          maximum: 2
-        members:
-          description: List od user IDs in the conversation
-          type: array
-          items:
-            type: string
-            example: "abcdef012345"
-          example: ["abcdef012345","gfkjskj20392"]
-        createdAt:
-          description: Timestamp when the conversation was created
-          type: string
-          format: date-time
-          example: "2024-10-15T10:00:00Z"
-        timeStamp:
-          description: Timestamp when the conversation was last updated with a new message
-          type: string
-          format: date-time
-          example: "2024-11-15T11:00:00Z"
-        lastMessage:
-          description: Last message sent in the conversation, can be used as conv. preview
-          type: string
-          example: "Hello everyone!"
-        photo:
-          type: string
-          description: URL to the coversation's photo
-          example: "https://example.com/photos/user123.jpg"
-      required:
-        - id
-        - members
-        - createdAt
-    
-    group:
-      title: Group
-      description: "This object represent group conversation"
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/id'
-        numberOfMembers:
-          type: integer
-          minimum: 1
-          maximum: 99
-        members:
-          description: List od user IDs in the group
-          type: array
-          items:
-            type: string
-            example: "abcdef012345"
-          example: ["abcdef012345","gfkjskj20392"]
-        createdAt:
-          description: Timestamp when the conversation was created
-          type: string
-          format: date-time
-          example: "2024-10-15T10:00:00Z"
-        timeStamp:
-          description: Timestamp when the conversation was last updated with a new message
-          type: string
-          format: date-time
-          example: "2024-11-15T11:00:00Z"
-        lastMessage:
-          description: Last message sent in the conversation, can be used as conv. preview
-          type: string
-          example: "Hello everyone!"
-        photo:
-          type: string
-          description: URL to the coversation's photo
-          example: "https://example.com/photos/user123.jpg"
-      required:
-        - id
-        - members
-        - createdAt
-
-    user:
-      title: User
-      description: "This object represents the content of a user profile"
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/id'
-        name: 
-          $ref: '#/components/schemas/name'
-        photo:
-          type: string
-          description: URL to the user's profile photo.
-          example: "https://example.com/photos/user123.jpg"
-      required:
-        - id
-        - name
-
-    name:
-      title: Name format
-      type: object
-      properties:
-        name:
-          description: Name of the user.
-          example: "Maria"
-          minLength: 3
-          maxLength: 16
-
-    userList:
-      title: User List
-      type: object
-      properties:
-        total:
-          type: integer
-          minimum: 0
-          maximum: 99
-        users:
-          type: array
-          items:
-            $ref: '#/components/schemas/user'
-      required: 
-        - users
-      example:
-
-    
-    message:
-      title: Message
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/id'
-        conversationId:
-          $ref: '#/components/schemas/id'
-        senderId:
-          $ref: '#/components/schemas/id'
-        type:
-          type: string
-          description: The type of message content.
-          enum: [text, image, gif]
-          example: "image"
-        content:
-          type: string
-          description: The text content of the message (for `text` type).
-          example: "Hello, how are you?"
-        mediaUrl:
-          type: string
-          description: URL to the media file (for `image` or `gif` type).
-          example: "https://example.com/media/image123.jpg"
-        timestamp:
-          type: string
-          format: date-time
-          description: The time the message was sent.
-          example: "2024-11-15T10:00:00Z"
-        isReceived:
-          type: boolean
-          description: Indicates if the message has been received (by all users in the conversation).
-          example: true
-        isRead:
-          type: boolean
-          description: Indicates if the message has been read (by all users in the conversation).
-          example: true
-      required:
-        - id
-        - conversationId
-        - senderId
-        - type
-        - timestamp
-        # If 'type' is 'text', ensure 'content' is provided and 'mediaUrl' is null or ignored.
-        # If 'type' is 'image' or 'gif', ensure 'mediaUrl' is provided and valid.
-    
-    messageList:
-      title: List of messages
-      type: object
-      properties:
-        total: 
-          type: integer
-          minimum: 1
-          maximum: 9999
-        messages:
-          type: array
-          items: 
-            $ref: '#/components/schemas/message'
-      required:
-        - messages
-
-    conversationList:
-      title: Conversation List
-      type: object
-      properties:
-        total:
-          type: integer
-          minimum: 0
-          maximum: 99
-        conversations:
-          type: array
-          items:
-            $ref: '#/components/schemas/conversation'
-      required: 
-        - conversations
-
-     # Used for the Error responses (40x and 50x)
-    Error:
-      description: Object describe an error with the code and the message
-      type: object
-      properties:
-        errors:
-          description: Array of error codes generated by the operation
-          type: array
-          items:
-            type: object
-            description: Description of the error
-            properties:
-              code:
-                description: Code error
-                type: integer
-                minimum: 0
-                maximum: 600
-                enum: [400, 401, 403, 404, 500]
-                example: 404
-              reason:
-                type: string
-                description: Explanation of the reason for the error which can be shown to a client user
-                pattern: "^.*?$"
-                example: Page not found
-                minLength: 1
-                maxLength: 100
-              message:
-                type: string
-                description: More details of the error
-                pattern: "^.*?$"
-                example: "The requested URL was not found"
-                minLength: 1
-                maxLength: 100
-            required:
-              - code
-              - reason
-          minItems: 1
-          maxItems: 100
-      required:
-        - errors
-
-# -----------------------------------------------------------------------------------------
-# RESPONSES SCHEMAS -----------------------------------------------------------------------
-  responses:
-    BadRequest:
-      description: The request was not compliant with the documentation (eg. missing fields, etc)
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-    Unauthorized:
-      description: The access token is missing or it's expired
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-    Forbidden:
-      description: The user is not allowed to perform the action
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-    NotFound:
-      description: Element not found
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-    InternalServerError:
-      description: The server encountered an internal error. Further info in server logs
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-
- # PARAMETERS SCHEMAS ----------------––----------------––----------------––
- # ----------------––----------------––----------------––----------------––         
-  parameters:
-    userId:
-      name: userId
-      in: path
-      required: true
-      description: The id of the utent who want execute the opreation defined
-      schema: { $ref: "#/components/schemas/id" }
-    groupId:
-      name: groupId
-      in: path
-      required: true
-      description: The id of the group in which the user want to use operations
-      schema: { $ref: "#/components/schemas/id" }
-    conversationId:
-      name: conversationId
-      in: path
-      required: true
-      description: ID of the user to start a conversation with (?)
-      schema: { $ref: "#/components/schemas/id" }
-    messageId:
-      name: messageId
-      in: path
-      required: true
-      description: ID of the message with which the user wants to use operations
-      schema: { $ref: "#/components/schemas/id" }
-    reactionId:
-      name: reactionId
-      in: path
-      required: true
-      description: ID of the comment of a message
-      schema: { $ref: "#/components/schemas/id" }
+security:
+  - BearerAuth: []
 
 paths:
-  /session:
+  /v1/session:
     post:
-      tags: [Login]
+      tags: ["Authentication"]
       summary: Logs in the user
-      description: |
+      description: |-
         If the user does not exist, it will be created,
         and an identifier is returned.
         If the user exists, the user identifier is returned.
       operationId: doLogin
+      security: []
       requestBody:
         description: User details
+        required: true
         content:
           application/json:
             schema:
               type: object
+              description: Login request details
               properties:
                 name:
-                  $ref: '#/components/schemas/name'
+                  type: string
+                  example: Maria
+                  pattern: '^[a-zA-Z0-9_-]+$'
+                  minLength: 3
+                  maxLength: 16
+                  description: Username to login with
               required:
                 - name
       responses:
@@ -382,201 +64,1135 @@ paths:
             application/json:
               schema:
                 type: object
+                description: Login response containing user identifier
                 properties:
                   identifier:
-                    type: string # Change this to "integer" if you use integer identifiers
+                    type: string
                     example: "abcdef012345"
-
-# -----------------------------------------------------------------------------------------
-# USER OPERATIONS -------------------------------------------------------------------------
-  /users:
-    get:
-      tags: [User]
-      summary: Retrieve a list of users (users who include the name in the query)
-      description: Fetches a list of all registered users (based on the query)
-      operationId: getUsers
-      parameters:
-        - name: searched-user 
-          in: query 
-          required: true
-          description: the query contains the name of the user you are looking for
-          schema: 
-            $ref: '#/components/schemas/name'
-            
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: a list of users
+                    description: User identifier to be used for authentication
+                    pattern: '^[a-zA-Z0-9]+$'
+                    minLength: 6
+                    maxLength: 64
+              example:
+                identifier: "abcdef012345"
+        '400':
+          description: Bad request - invalid username format
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/userList'
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "500": { $ref: "#/components/responses/InternalServerError" }
+                $ref: '#/components/schemas/Error'
 
-  /users/{userId}/username:
+  /v1/users/me/username:
     put:
-      tags: [User]
-      summary: Update your own username
-      description: |
-        Take a name from the requestBody, then replace the
-        username prviously used from the utent with the new one
+      tags: ["User Management"]
+      summary: Update current user's username
+      description: Updates the current user's username if the new name is not already taken
       operationId: setMyUserName
-      parameters:
-        - name: userId
-          in: path
-          description: Unique Identifier of the user
-          required: true
-          schema:
-            type: string
       requestBody:
-        description: New username chosen
         required: true
         content:
           application/json:
             schema:
               type: object
+              description: Username update request payload
               properties:
-                new_name: 
-                  $ref: '#/components/schemas/name'
+                name:
+                  type: string
+                  pattern: '^[a-zA-Z0-9_-]+$'
+                  minLength: 3
+                  maxLength: 16
+                  example: "NewUsername"
+                  description: New username to set
+              required:
+                - name
       responses:
         '200':
           description: Username updated successfully
           content:
             application/json:
-              schema: 
+              schema:
                 type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Username updated successfully"
-                  user:
-                    $ref: '#/components/schemas/user'
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "500": { $ref: "#/components/responses/InternalServerError" }
+                description: Empty success response
+                properties: {}
+              example: {}
+        '400':
+          description: Bad request - invalid username format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
 
-  /users/{userId}/photo:
+  /v1/users/me/photo:
     put:
-      tags: [User]
-      summary: Update your own profile picture
-      description: |
-        Take an image from the requestBody, then replace the
-        profile picture prviously used from the utent with the new one
+      tags: ["User Management"]
+      summary: Update current user's profile photo
+      description: Upload and set a new profile photo for the authenticated user
       operationId: setMyPhoto
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: Photo upload form data
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Profile photo image file
+                  minLength: 1
+                  maxLength: 10485760 # 10MB max file size
+              required:
+                - photo
+      responses:
+        '200':
+          description: Profile photo updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Empty success response
+                properties: {}
+              example: {}
+        '400':
+          description: Bad request - invalid image format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/users:
+    get:
+      tags: ["User Management"]
+      summary: Search for users by username
+      description: Search for other WASAText users by username
+      operationId: searchUsers
       parameters:
-        - name: userId
-          in: path
-          description: Unique Identifier of the user
+        - name: q
+          in: query
+          description: Username search query
           required: true
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_-]*$'
+      responses:
+        '200':
+          description: List of matching users
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Search results containing matched users
+                properties:
+                  users:
+                    type: array
+                    description: List of users matching the search criteria
+                    items:
+                      $ref: '#/components/schemas/User'
+                    minItems: 0
+                    maxItems: 100
+              example:
+                users:
+                  - id: "user123"
+                    username: "Maria"
+                    photoUrl: "/photos/user123.jpg"
+                  - id: "user456"
+                    username: "Mario"
+                    photoUrl: "/photos/user456.jpg"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/conversations:
+    get:
+      tags: ["Conversations"]
+      summary: Get user's conversations
+      description: Get all conversations for the current user, sorted by latest message timestamp
+      operationId: getMyConversations
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Object containing user's conversations
+                properties:
+                  conversations:
+                    type: array
+                    description: List of user's conversations
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+                    minItems: 0
+                    maxItems: 500
+              example:
+                conversations:
+                  - id: "conv123"
+                    type: "direct"
+                    name: "Maria"
+                    photoUrl: "/photos/user123.jpg"
+                    lastMessage:
+                      id: "msg789"
+                      content: "Hello there!"
+                      timestamp: "2023-06-15T14:30:00Z"
+                      senderUsername: "Maria"
+                      hasPhoto: false
+                    unreadCount: 2
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/conversations/{conversationId}:
+    get:
+      tags: ["Conversations"]
+      summary: Get conversation messages
+      description: Get all messages in a specific conversation
+      operationId: getConversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Conversation identifier
+      responses:
+        '200':
+          description: Conversation details with messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+              example:
+                id: "conv123"
+                type: "group"
+                name: "Project Team"
+                photoUrl: "/photos/group123.jpg"
+                members: [
+                  {
+                    id: "user123",
+                    username: "Maria",
+                    photoUrl: "/photos/user123.jpg"
+                  },
+                  {
+                    id: "user456",
+                    username: "John",
+                    photoUrl: "/photos/user456.jpg"
+                  }
+                ]
+                messages: [
+                  {
+                    id: "msg123",
+                    senderId: "user123",
+                    senderUsername: "Maria",
+                    content: "Hello everyone!",
+                    timestamp: "2023-06-15T14:30:00Z",
+                    status: "read",
+                    comments: []
+                  }
+                ]
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/conversations/{conversationId}/messages:
+    post:
+      tags: ["Messages"]
+      summary: Send a message
+      description: Send a new message to a conversation
+      operationId: sendMessage
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Conversation identifier
       requestBody:
-        description: New profile picture chosen
         required: true
         content:
           application/json:
             schema:
               type: object
+              description: Text message content to send
               properties:
-                new_photo: 
+                content:
                   type: string
-                  description: URL to the coversation's photo
-                  example: "https://example.com/photos/user123.jpg"
+                  description: Message text content
+                  maxLength: 1000
+                  minLength: 1
+                  pattern: '^.+$'
+                replyTo:
+                  type: string
+                  description: ID of message being replied to (optional)
+                  minLength: 1
+                  maxLength: 36
+                  pattern: '^[a-zA-Z0-9_-]+$'
+              required:
+                - content
+          multipart/form-data:
+            schema:
+              type: object
+              description: Photo message content to send
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Photo message
+                  minLength: 1
+                  maxLength: 10485760 # 10MB max
+                replyTo:
+                  type: string
+                  description: ID of message being replied to (optional)
+                  minLength: 1
+                  maxLength: 36
+                  pattern: '^[a-zA-Z0-9_-]+$'
+              required:
+                - photo
       responses:
-        '200':
-          description: Proile picture updated successfully
+        '201':
+          description: Message sent successfully
           content:
             application/json:
-              schema: 
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Profile picture updated successfully"
-                  user:
-                    $ref: '#/components/schemas/user'
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "500": { $ref: "#/components/responses/InternalServerError" }
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                id: "msg456"
+                senderId: "user123"
+                senderUsername: "Maria"
+                content: "Hello, how are you?"
+                timestamp: "2023-06-15T15:45:00Z"
+                status: "sent"
+                comments: []
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
 
-# ----------------------------------------------------------------------------------------    
-# CONVERSATION OPERATIONS ----------------------------------------------------------------
-  /user/{userId}/conversations:
-    get:
-      tags: [Conversation]
-      summary: Get a list of available conversations
-      description: Get the list of all conversations a specified user is part of
-      operationId: getMyConversations
+  /v1/messages/{messageId}/forward:
+    post:
+      tags: ["Messages"]
+      summary: Forward a message
+      description: Forward an existing message to another conversation
+      operationId: forwardMessage
       parameters:
-        - name: userId
+        - name: messageId
           in: path
-          description: Unique Identifier of the user
           required: true
           schema:
             type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Message identifier to forward
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Forward message request details
+              properties:
+                conversationId:
+                  type: string
+                  description: Target conversation ID
+                  minLength: 1
+                  maxLength: 36
+                  pattern: '^[a-zA-Z0-9_-]+$'
+              required:
+                - conversationId
       responses:
-        '200':
-          description: Get back the list of conversations of a user
+        '201':
+          description: Message forwarded successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/conversationList'
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "500": { $ref: "#/components/responses/InternalServerError" }
-  
-  /user/{userId}/conversations/{conversationId}:
-    get:
-      tags: [Conversation]
-      summary: Get a specified conversation with another user
-      description: |
-        Get a conversation with another user by using 
-        the conversation ID as a parameter
-      operationId: getConversation
-      parameters:
-        - $ref: '#/components/parameters/userId'
-        - $ref: '#/components/parameters/conversationId'
-      responses:
-        '200':
-          description: Get back a preview of the conversation
+                $ref: '#/components/schemas/Message'
+              example:
+                id: "msg789"
+                senderId: "user123"
+                senderUsername: "Maria"
+                content: "Hello, how are you?"
+                timestamp: "2023-06-15T16:00:00Z"
+                status: "sent"
+                forwarded: true
+                comments: []
+        '404':
+          description: Message or conversation not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/conversation'
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "500": { $ref: "#/components/responses/InternalServerError" }
- 
-  /user/{userId}/conversations/{conversationId}/messages:
-    get:
-      tags: [Conversation, Message]
-      summary: Fetch the messages inside a conversation
-      description: |
-        Upon entering a specific conversation, 
-        show all messages
-      parameters:
-        - $ref: '#/components/parameters/userId'
-        - $ref: '#/components/parameters/conversationId'
-      responses:
-        '200':
-          description: Get the list of all messages
-          content: 
-            application/json:
-              schema:
-                $ref: '#/components/schemas/messageList'
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "500": { $ref: "#/components/responses/InternalServerError" }
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
 
-        
-      
+  /v1/messages/{messageId}:
+    delete:
+      tags: ["Messages"]
+      summary: Delete a message
+      description: Delete a message sent by the current user
+      operationId: deleteMessage
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Message identifier
+      responses:
+        '204':
+          description: Message deleted successfully
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - can only delete own messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/messages/{messageId}/comments:
+    post:
+      tags: ["Messages"]
+      summary: Comment on a message
+      description: Add a reaction/comment to a message with an emoticon
+      operationId: commentMessage
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Message identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Comment details to add to message
+              properties:
+                emoticon:
+                  type: string
+                  description: Reaction emoticon
+                  example: "👍"
+                  maxLength: 10
+                  minLength: 1
+                  pattern: '^.+$'
+              required:
+                - emoticon
+      responses:
+        '201':
+          description: Comment added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+              example:
+                id: "comment123"
+                userId: "user456"
+                username: "John"
+                emoticon: "👍"
+                timestamp: "2023-06-15T17:30:00Z"
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/messages/{messageId}/comments/{commentId}:
+    delete:
+      tags: ["Messages"]
+      summary: Remove comment from message
+      description: Remove a reaction/comment from a message
+      operationId: uncommentMessage
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Message identifier
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Comment identifier
+      responses:
+        '204':
+          description: Comment removed successfully
+        '404':
+          description: Message or comment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - can only delete own comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/groups:
+    post:
+      tags: ["Groups"]
+      summary: Create a new group
+      description: Create a new group conversation with specified users
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Group creation request details
+              properties:
+                name:
+                  type: string
+                  description: Group name
+                  minLength: 1
+                  maxLength: 50
+                  pattern: '^.+$'
+                  example: "My Group Chat"
+                members:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 36
+                    pattern: '^[a-zA-Z0-9_-]+$'
+                  description: Array of user IDs to add to the group
+                  minItems: 1
+                  maxItems: 100
+              required:
+                - name
+                - members
+      responses:
+        '201':
+          description: Group created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+              example:
+                id: "group123"
+                name: "My Group Chat"
+                photoUrl: "/photos/default_group.jpg"
+                members: [
+                  {
+                    id: "user123",
+                    username: "Maria",
+                    photoUrl: "/photos/user123.jpg"
+                  },
+                  {
+                    id: "user456",
+                    username: "John",
+                    photoUrl: "/photos/user456.jpg"
+                  }
+                ]
+                createdBy: "user123"
+                createdAt: "2023-06-15T18:00:00Z"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/groups/{groupId}/members:
+    post:
+      tags: ["Groups"]
+      summary: Add user to group
+      description: Add a user to an existing group
+      operationId: addToGroup
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Group identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: User to add to the group
+              properties:
+                userId:
+                  type: string
+                  description: User ID to add to the group
+                  minLength: 1
+                  maxLength: 36
+                  pattern: '^[a-zA-Z0-9_-]+$'
+              required:
+                - userId
+      responses:
+        '200':
+          description: User added to group successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Empty success response
+                properties: {}
+              example: {}
+        '404':
+          description: Group or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: User already in group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/groups/{groupId}/members/me:
+    delete:
+      tags: ["Groups"]
+      summary: Leave group
+      description: Remove current user from a group
+      operationId: leaveGroup
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Group identifier
+      responses:
+        '204':
+          description: Left group successfully
+        '404':
+          description: Group not found or user not in group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/groups/{groupId}/name:
+    put:
+      tags: ["Groups"]
+      summary: Update group name
+      description: Update the name of a group
+      operationId: setGroupName
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Group identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Group name update details
+              properties:
+                name:
+                  type: string
+                  description: New group name
+                  minLength: 1
+                  maxLength: 50
+                  pattern: '^.+$'
+              required:
+                - name
+      responses:
+        '200':
+          description: Group name updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Empty success response
+                properties: {}
+              example: {}
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/groups/{groupId}/photo:
+    put:
+      tags: ["Groups"]
+      summary: Update group photo
+      description: Update the photo of a group
+      operationId: setGroupPhoto
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 36
+            pattern: '^[a-zA-Z0-9_-]+$'
+          description: Group identifier
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: Group photo upload form data
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Group photo image file
+                  minLength: 1
+                  maxLength: 10485760 # 10MB max
+              required:
+                - photo
+      responses:
+        '200':
+          description: Group photo updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Empty success response
+                properties: {}
+              example: {}
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: User identifier obtained from login endpoint
+
+  responses:
+    UnauthorizedError:
+      description: Authentication information is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      description: Error response containing a message explaining what went wrong
+      properties:
+        message:
+          type: string
+          description: Error message
+          example: "Username already exists"
+      required:
+        - message
+
+    User:
+      type: object
+      description: User profile information
+      properties:
+        id:
+          type: string
+          description: User identifier
+          example: "user123"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        username:
+          type: string
+          description: Username
+          example: "Maria"
+          minLength: 3
+          maxLength: 16
+          pattern: '^[a-zA-Z0-9_-]+$'
+        photoUrl:
+          type: string
+          description: URL to user's profile photo
+          example: "/photos/user123.jpg"
+          minLength: 1
+          maxLength: 255
+          pattern: '^/.*$'
+      required:
+        - id
+        - username
+
+    Conversation:
+      type: object
+      description: A conversation between users, either direct message or group chat
+      properties:
+        id:
+          type: string
+          description: Conversation identifier
+          example: "conv123"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        type:
+          type: string
+          enum: ["direct", "group"]
+          description: Type of conversation
+        name:
+          type: string
+          description: Conversation name (username for direct, group name for groups)
+          example: "Maria"
+          minLength: 1
+          maxLength: 50
+          pattern: '^.+$'
+        photoUrl:
+          type: string
+          description: URL to conversation photo
+          example: "/photos/conv123.jpg"
+          minLength: 1
+          maxLength: 255
+          pattern: '^/.*$'
+        lastMessage:
+          $ref: '#/components/schemas/MessagePreview'
+        unreadCount:
+          type: integer
+          description: Number of unread messages
+          example: 3
+          minimum: 0
+      required:
+        - id
+        - type
+        - name
+
+    ConversationDetail:
+      type: object
+      description: Detailed view of a conversation including messages
+      properties:
+        id:
+          type: string
+          description: Conversation identifier
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        type:
+          type: string
+          enum: ["direct", "group"]
+          description: Type of conversation (direct or group)
+        name:
+          type: string
+          description: Conversation name
+          minLength: 1
+          maxLength: 50
+          pattern: '^.+$'
+        photoUrl:
+          type: string
+          description: URL to conversation photo
+          minLength: 1
+          maxLength: 255
+          pattern: '^/.*$'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          description: Conversation members (for groups)
+          minItems: 1
+          maxItems: 100
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+          description: Messages in reverse chronological order
+          minItems: 0
+          maxItems: 500
+      required:
+        - id
+        - type
+        - name
+        - messages
+
+    MessagePreview:
+      type: object
+      description: Preview information about a message, used in conversation listings
+      properties:
+        id:
+          type: string
+          description: Message identifier
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        content:
+          type: string
+          description: Message preview text or indication of photo
+          example: "Hello!"
+          maxLength: 100
+          pattern: '^.*$'
+        timestamp:
+          type: string
+          format: date-time
+          description: Message timestamp
+        senderUsername:
+          type: string
+          description: Username of sender
+          example: "Maria"
+          minLength: 3
+          maxLength: 16
+          pattern: '^[a-zA-Z0-9_-]+$'
+        hasPhoto:
+          type: boolean
+          description: Whether message contains a photo
+      required:
+        - id
+        - timestamp
+
+    Message:
+      type: object
+      description: A message sent in a conversation
+      properties:
+        id:
+          type: string
+          description: Message identifier
+          example: "msg123"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        senderId:
+          type: string
+          description: ID of message sender
+          example: "user123"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        senderUsername:
+          type: string
+          description: Username of sender
+          example: "Maria"
+          minLength: 3
+          maxLength: 16
+          pattern: '^[a-zA-Z0-9_-]+$'
+        content:
+          type: string
+          description: Message text content
+          example: "Hello, how are you?"
+          minLength: 0
+          maxLength: 1000
+          pattern: '^.*$'
+        photoUrl:
+          type: string
+          description: URL to photo if message contains image
+          example: "/photos/msg123.jpg"
+          minLength: 1
+          maxLength: 255
+          pattern: '^/.*$'
+        timestamp:
+          type: string
+          format: date-time
+          description: Message timestamp
+        status:
+          type: string
+          enum: ["sent", "delivered", "read"]
+          description: Message delivery status
+        replyTo:
+          type: string
+          description: ID of message this is replying to
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+          description: Reactions/comments on this message
+          minItems: 0
+          maxItems: 50
+        forwarded:
+          type: boolean
+          description: Whether this message was forwarded
+          default: false
+      required:
+        - id
+        - senderId
+        - senderUsername
+        - timestamp
+        - status
+
+    Comment:
+      type: object
+      description: A reaction/comment on a message
+      properties:
+        id:
+          type: string
+          description: Comment identifier
+          example: "comment123"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        userId:
+          type: string
+          description: ID of user who made the comment
+          example: "user456"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        username:
+          type: string
+          description: Username of commenter
+          example: "John"
+          minLength: 3
+          maxLength: 16
+          pattern: '^[a-zA-Z0-9_-]+$'
+        emoticon:
+          type: string
+          description: Reaction emoticon
+          example: "👍"
+          minLength: 1
+          maxLength: 10
+          pattern: '^.+$'
+        timestamp:
+          type: string
+          format: date-time
+          description: Comment timestamp
+      required:
+        - id
+        - userId
+        - username
+        - emoticon
+        - timestamp
+
+    Group:
+      type: object
+      description: A group chat container with multiple participants
+      properties:
+        id:
+          type: string
+          description: Group identifier
+          example: "group123"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        name:
+          type: string
+          description: Group name
+          example: "My Group Chat"
+          minLength: 1
+          maxLength: 50
+          pattern: '^.+$'
+        photoUrl:
+          type: string
+          description: URL to group photo
+          example: "/photos/group123.jpg"
+          minLength: 1
+          maxLength: 255
+          pattern: '^/.*$'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          description: Group members
+          minItems: 1
+          maxItems: 100
+        createdBy:
+          type: string
+          description: ID of user who created the group
+          example: "user123"
+          minLength: 1
+          maxLength: 36
+          pattern: '^[a-zA-Z0-9_-]+$'
+        createdAt:
+          type: string
+          format: date-time
+          description: Group creation timestamp
+      required:
+        - id
+        - name
+        - members
+        - createdBy
+        - createdAt
 
