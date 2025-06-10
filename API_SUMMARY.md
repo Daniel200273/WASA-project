@@ -15,14 +15,14 @@
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    WASAText Messaging API                   │
-│                  (http://localhost:3000)                   │
+│                  (http://localhost:3000)                    │
 └─────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
         ┌─────────────────────────────────────────────────┐
         │              Authentication                     │
         │  • Simple login with username                   │
-        │  • Auto-creates users if not exist             │
+        │  • Auto-creates users if not exist              │
         │  • Bearer token authentication                  │
         └─────────────────────────────────────────────────┘
                                 │
@@ -43,6 +43,7 @@
 ## 👤 **User Journey Flow**
 
 ### **1. Authentication & Setup**
+
 ```
 User opens app → Enter username → System creates/finds user → Returns auth token
                                                                       │
@@ -51,11 +52,13 @@ User opens app → Enter username → System creates/finds user → Returns auth
 ```
 
 ### **2. Profile Management**
+
 ```
 Update username ← → Upload profile photo ← → Search for other users
 ```
 
 ### **3. Messaging Flow**
+
 ```
 View conversations list → Select conversation → View messages → Send message/photo
          │                        │                   │              │
@@ -74,11 +77,13 @@ Create new group → Add members → Start messaging
 ## 💬 **Conversation Types**
 
 ### **Direct Messages**
+
 - **1:1 conversations** between two users
 - Display contact's name and profile photo
 - Private messaging
 
 ### **Group Chats**
+
 - **Multi-user conversations** (1-100 members)
 - Custom group names and photos
 - Member management (add/remove)
@@ -89,19 +94,21 @@ Create new group → Add members → Start messaging
 ## 📱 **Key Features**
 
 ### **Message Types:**
+
 ```
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │   Text Message  │  │  Photo Message  │  │ Forwarded Msg   │
 │                 │  │                 │  │                 │
-│ "Hello there!"  │  │ [📷 image.jpg]  │  │ ↪️ "Fwd: Hello" │
+│ "Hello there!"  │  │ [◉"] image.jpg  │  │ ↪ "Fwd: Hello"  │
 │                 │  │                 │  │                 │
-│ 👍 ❤️ 😂       │  │ 👍 ❤️ 😂       │  │ 👍 ❤️ 😂       │
+│ 👍 ❤️ 😂         │  │ 👍 ❤️ 😂         │  │ 👍 ❤️ 😂         │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
 ```
 
 ### **Message Features:**
+
 - ✅ **Delivery Status**: sent → delivered → read
-- 💬 **Reactions**: Emoji comments on messages  
+- 💬 **Reactions**: Emoji comments on messages
 - ↪️ **Replies**: Reference previous messages
 - ⏭️ **Forwarding**: Share messages across conversations
 - 🗑️ **Deletion**: Remove own messages
@@ -111,23 +118,24 @@ Create new group → Add members → Start messaging
 ## 🎨 **User Interface Concept**
 
 ### **Main Screen Layout:**
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  WASAText                                   [User Profile]   │
+│  WASAText                                   [User Profile]  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Conversations List          │        Active Chat           │
+│  Conversations List         │        Active Chat            │
 │  ┌─────────────────────┐    │  ┌─────────────────────────┐  │
-│  │ 👤 Maria            │    │  │ 👥 Project Team        │  │
-│  │ "Hello there!"      │ 2  │  │                         │  │
-│  │ 2 min ago          │    │  │ Maria: Hello everyone!   │  │
-│  └─────────────────────┘    │  │ John: Hi Maria! 👋      │  │
+│  │ ☻ Maria             │    │  │ 𐦂𖨆𐀪𖠋 Project Team       │  │
+│  │ "Hello there!"      │    │  │                         │  │
+│  │ 2 min ago           │    │  │ Maria: Hello everyone!  │  │
+│  └─────────────────────┘    │  │ John: Hi Maria!         │  │
 │  ┌─────────────────────┐    │  │ You: How's the project? │  │
-│  │ 👥 Project Team     │    │  │                         │  │
-│  │ "How's the project?"│    │  │ [Type message here...] │  │
-│  │ 5 min ago          │    │  └─────────────────────────┘  │
-│  └─────────────────────┘    │                             │
-│                             │                             │
+│  │ 𐦂𖨆𐀪𖠋 Project Team   │    │  │                         │  │
+│  │ "How's the project?"│    │  │ [Type message here...]  │  │
+│  │ 5 min ago           │    │  └─────────────────────────┘  │
+│  └─────────────────────┘    │                               │
+│                             │                               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -142,13 +150,13 @@ Bearer Token Authentication
 ┌─────────────────────────────────────┐
 │        Access Control               │
 │                                     │
-│ ✅ Users can only:                  │
+│ ✓ - Users can only:                 │
 │   • Access their own conversations  │
 │   • Delete their own messages       │
 │   • Remove their own reactions      │
 │   • Leave groups they're in         │
 │                                     │
-│ ❌ Users cannot:                    │
+│ x - Users cannot:                   │
 │   • Access others' private data     │
 │   • Delete others' messages         │
 │   • Add to groups they're not in    │
@@ -160,6 +168,7 @@ Bearer Token Authentication
 ## 📊 **Data Structures**
 
 ### **Core Entities:**
+
 ```
 User                    Conversation              Message
 ├── id                 ├── id                   ├── id
@@ -182,50 +191,57 @@ Group                  ├── members              ├── status
 ## 🚀 **API Endpoints Reference**
 
 ### **Authentication**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+
+| Method | Endpoint   | Description         |
+| ------ | ---------- | ------------------- |
 | `POST` | `/session` | Login/Register user |
 
 ### **User Management**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `PUT` | `/users/me/username` | Update current user's username |
-| `PUT` | `/users/me/photo` | Upload profile photo |
-| `GET` | `/users` | Search for users by username |
+
+| Method | Endpoint             | Description                    |
+| ------ | -------------------- | ------------------------------ |
+| `PUT`  | `/users/me/username` | Update current user's username |
+| `PUT`  | `/users/me/photo`    | Upload profile photo           |
+| `GET`  | `/users`             | Search for users by username   |
 
 ### **Conversations**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/conversations` | Get user's conversations list |
-| `GET` | `/conversations/{conversationId}` | Get conversation details with messages |
+
+| Method | Endpoint                          | Description                            |
+| ------ | --------------------------------- | -------------------------------------- |
+| `GET`  | `/conversations`                  | Get user's conversations list          |
+| `GET`  | `/conversations/{conversationId}` | Get conversation details with messages |
 
 ### **Messages**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/conversations/{conversationId}/messages` | Send text or photo message |
-| `DELETE` | `/messages/{messageId}` | Delete own message |
-| `POST` | `/messages/{messageId}/forward` | Forward message to another conversation |
+
+| Method   | Endpoint                                   | Description                             |
+| -------- | ------------------------------------------ | --------------------------------------- |
+| `POST`   | `/conversations/{conversationId}/messages` | Send text or photo message              |
+| `DELETE` | `/messages/{messageId}`                    | Delete own message                      |
+| `POST`   | `/messages/{messageId}/forward`            | Forward message to another conversation |
 
 ### **Message Reactions**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/messages/{messageId}/comments` | Add emoji reaction to message |
-| `DELETE` | `/messages/{messageId}/comments/{commentId}` | Remove own reaction |
+
+| Method   | Endpoint                                     | Description                   |
+| -------- | -------------------------------------------- | ----------------------------- |
+| `POST`   | `/messages/{messageId}/comments`             | Add emoji reaction to message |
+| `DELETE` | `/messages/{messageId}/comments/{commentId}` | Remove own reaction           |
 
 ### **Groups**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/groups` | Create new group |
-| `POST` | `/groups/{groupId}/members` | Add user to group |
-| `DELETE` | `/groups/{groupId}/members/me` | Leave group |
-| `PUT` | `/groups/{groupId}/name` | Update group name |
-| `PUT` | `/groups/{groupId}/photo` | Update group photo |
+
+| Method   | Endpoint                       | Description        |
+| -------- | ------------------------------ | ------------------ |
+| `POST`   | `/groups`                      | Create new group   |
+| `POST`   | `/groups/{groupId}/members`    | Add user to group  |
+| `DELETE` | `/groups/{groupId}/members/me` | Leave group        |
+| `PUT`    | `/groups/{groupId}/name`       | Update group name  |
+| `PUT`    | `/groups/{groupId}/photo`      | Update group photo |
 
 ---
 
 ## 📋 **Key Constraints & Limits**
 
 ### **Data Limits:**
+
 - **Usernames**: 3-16 characters, alphanumeric + underscore/dash
 - **Messages**: Max 1000 characters
 - **Photos**: Max 10MB file size
@@ -235,6 +251,7 @@ Group                  ├── members              ├── status
 - **Reactions per message**: Max 50
 
 ### **ID Patterns:**
+
 - All IDs follow pattern: `^[a-zA-Z0-9_-]+$`
 - Max 36 characters length
 
@@ -243,21 +260,25 @@ Group                  ├── members              ├── status
 ## 🎯 **Business Logic**
 
 ### **User Creation:**
+
 - Users are auto-created on first login
 - Username uniqueness enforced
 - Bearer token returned for authentication
 
 ### **Conversation Management:**
+
 - Direct conversations created implicitly when messaging
 - Group conversations require explicit creation
 - Conversations sorted by latest message timestamp
 
 ### **Message Delivery:**
+
 - Status tracking: sent → delivered → read
 - Users can only delete their own messages
 - Photo messages stored with URL references
 
 ### **Group Administration:**
+
 - Any member can add new users
 - Users can leave groups voluntarily
 - Group creators have no special privileges (democratic model)
@@ -267,15 +288,18 @@ Group                  ├── members              ├── status
 ## 🔧 **Technical Specifications**
 
 ### **Authentication:**
+
 - **Type**: Bearer Token
 - **Header**: `Authorization: Bearer <token>`
 - **Token source**: Login endpoint response
 
 ### **Content Types:**
+
 - **JSON**: `application/json` (most endpoints)
 - **Multipart**: `multipart/form-data` (photo uploads)
 
 ### **HTTP Status Codes:**
+
 - **200**: Success (updates)
 - **201**: Success (creation)
 - **204**: Success (deletion)
@@ -290,6 +314,7 @@ Group                  ├── members              ├── status
 ## 🎨 **Response Examples**
 
 ### **Login Response:**
+
 ```json
 {
   "identifier": "abcdef012345"
@@ -297,6 +322,7 @@ Group                  ├── members              ├── status
 ```
 
 ### **Conversations List:**
+
 ```json
 {
   "conversations": [
@@ -319,6 +345,7 @@ Group                  ├── members              ├── status
 ```
 
 ### **Message with Reactions:**
+
 ```json
 {
   "id": "msg123",
