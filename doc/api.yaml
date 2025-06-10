@@ -10,7 +10,7 @@ info:
     name: Emanuele Panizzi, Enrico Bassetti
 
 servers:
-  - url: http://localhost:3000/v1
+  - url: http://localhost:3000
     description: Development server
 
 tags:
@@ -29,7 +29,7 @@ security:
   - BearerAuth: []
 
 paths:
-  /v1/session:
+  /session:
     post:
       tags: ["Authentication"]
       summary: Logs in the user
@@ -82,7 +82,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /v1/users/me/username:
+  /users/me/username:
     put:
       tags: ["User Management"]
       summary: Update current user's username
@@ -130,7 +130,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/users/me/photo:
+  /users/me/photo:
     put:
       tags: ["User Management"]
       summary: Update current user's profile photo
@@ -171,7 +171,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/users:
+  /users:
     get:
       tags: ["User Management"]
       summary: Search for users by username
@@ -214,7 +214,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/conversations:
+  /conversations:
     get:
       tags: ["Conversations"]
       summary: Get user's conversations
@@ -252,7 +252,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/conversations/{conversationId}:
+  /conversations/{conversationId}:
     get:
       tags: ["Conversations"]
       summary: Get conversation messages
@@ -312,7 +312,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/conversations/{conversationId}/messages:
+  /conversations/{conversationId}/messages:
     post:
       tags: ["Messages"]
       summary: Send a message
@@ -399,7 +399,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/messages/{messageId}/forward:
+  /messages/{messageId}/forward:
     post:
       tags: ["Messages"]
       summary: Forward a message
@@ -456,7 +456,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/messages/{messageId}:
+  /messages/{messageId}:
     delete:
       tags: ["Messages"]
       summary: Delete a message
@@ -490,7 +490,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/messages/{messageId}/comments:
+  /messages/{messageId}/comments:
     post:
       tags: ["Messages"]
       summary: Comment on a message
@@ -545,7 +545,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/messages/{messageId}/comments/{commentId}:
+  /messages/{messageId}/comments/{commentId}:
     delete:
       tags: ["Messages"]
       summary: Remove comment from message
@@ -588,7 +588,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/groups:
+  /groups:
     post:
       tags: ["Groups"]
       summary: Create a new group
@@ -656,7 +656,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/groups/{groupId}/members:
+  /groups/{groupId}/members:
     post:
       tags: ["Groups"]
       summary: Add user to group
@@ -713,7 +713,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/groups/{groupId}/members/me:
+  /groups/{groupId}/members/me:
     delete:
       tags: ["Groups"]
       summary: Leave group
@@ -741,7 +741,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/groups/{groupId}/name:
+  /groups/{groupId}/name:
     put:
       tags: ["Groups"]
       summary: Update group name
@@ -798,7 +798,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /v1/groups/{groupId}/photo:
+  /groups/{groupId}/photo:
     put:
       tags: ["Groups"]
       summary: Update group photo
