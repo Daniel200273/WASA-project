@@ -38,14 +38,13 @@ import (
 
 // AppDatabase is the high level interface for the DB
 type AppDatabase interface {
-	// Esistenti (mantieni per compatibilità)
-	GetName() (string, error)
-	SetName(name string) error
+	// Health check
 	Ping() error
 
 	// === AUTHENTICATION ===
 	CreateUser(username string) (*User, error)
 	GetUserByID(id string) (*User, error)
+	GetUserByUsername(username string) (*User, error)
 	GetUserByToken(token string) (*User, error)
 	CreateUserSession(userID string) (string, error)
 	DeleteUserSession(token string) error
@@ -187,17 +186,6 @@ func (db *appdbimpl) initializeSchema() error {
 	_, err := db.c.Exec(schema)
 	if err != nil {
 		return fmt.Errorf("failed to initialize database schema: %w", err)
-	}
-
-	// Mantieni compatibilità con example_table esistente
-	var tableName string
-	err = db.c.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='example_table';`).Scan(&tableName)
-	if errors.Is(err, sql.ErrNoRows) {
-		sqlStmt := `CREATE TABLE example_table (id INTEGER NOT NULL PRIMARY KEY, name TEXT);`
-		_, err = db.c.Exec(sqlStmt)
-		if err != nil {
-			return fmt.Errorf("error creating example table: %w", err)
-		}
 	}
 
 	return nil
