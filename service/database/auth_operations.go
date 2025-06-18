@@ -12,22 +12,7 @@ import (
 // CreateUser creates a new user with the given username
 func (db *appdbimpl) CreateUser(username string) (*User, error) {
 	// 1. Generate unique user ID
-	// 1.1 Validate username
-	if !isValidUsername(username) {
-		return nil, fmt.Errorf("username contains invalid characters")
-	}
-
-	// 1.2 Check if username already exists
-	existingUser, err := db.GetUserByUsername(username)
-	if err != nil && !isNotFoundError(err) {
-		// Database error occurred, don't proceed
-		return nil, fmt.Errorf("error checking username availability: %w", err)
-	}
-	if existingUser != nil {
-		return nil, fmt.Errorf("username already exists")
-	}
-
-	// 1.3 Generate user ID
+	// Username validation is done in the API layer, so we assume it's valid here
 	userID := uuid.Must(uuid.NewV4()).String()
 
 	// 2. Insert user into database
@@ -36,7 +21,7 @@ func (db *appdbimpl) CreateUser(username string) (*User, error) {
 		VALUES (?, ?, NULL, ?)
 	`
 	createdAt := time.Now().UTC()
-	_, err = db.c.Exec(query, userID, username, createdAt)
+	_, err := db.c.Exec(query, userID, username, createdAt)
 	if err != nil {
 		return nil, fmt.Errorf("error creating user: %w", err)
 	}

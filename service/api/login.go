@@ -1,37 +1,24 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/Daniel200273/WASA-project/service/api/reqcontext"
 	"github.com/julienschmidt/httprouter"
 )
 
-// LoginRequest represents the login request body
-type LoginRequest struct {
-	Name string `json:"name"`
-}
-
-// LoginResponse represents the login response body
-type LoginResponse struct {
-	Identifier string `json:"identifier"`
-}
-
 // doLogin handles user login/registration
 func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	// Parse request body
 	var req LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ctx.Logger.WithError(err).Error("invalid request body")
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := parseJSONRequest(r, &req); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", ctx)
 		return
 	}
 
 	// Validate username
-	if req.Name == "" || len(req.Name) < 3 || len(req.Name) > 16 {
-		ctx.Logger.Error("invalid username length")
-		http.Error(w, "Username must be between 3 and 16 characters", http.StatusBadRequest)
+	if err := validateUsername(req.Name); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid username", ctx)
 		return
 	}
 
@@ -42,8 +29,7 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		ctx.Logger.WithField("username", req.Name).Info("creating new user")
 		user, err = rt.db.CreateUser(req.Name)
 		if err != nil {
-			ctx.Logger.WithError(err).Error("failed to create user")
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			sendErrorResponse(w, http.StatusInternalServerError, "Internal server error", ctx)
 			return
 		}
 	}
@@ -51,8 +37,7 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	// Create user session (token)
 	token, err := rt.db.CreateUserSession(user.ID)
 	if err != nil {
-		ctx.Logger.WithError(err).Error("failed to create user session")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		sendErrorResponse(w, http.StatusInternalServerError, "Internal server error", ctx)
 		return
 	}
 
@@ -62,9 +47,7 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	}
 
 	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	if err := sendJSONResponse(w, http.StatusCreated, response); err != nil {
 		ctx.Logger.WithError(err).Error("failed to encode response")
 	}
 

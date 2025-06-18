@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"regexp"
 	"time"
 )
 
@@ -256,18 +255,4 @@ func formatTimestamp(t time.Time) string {
 // Counterpart to formatTimestamp for bidirectional timestamp conversion.
 func parseTimestamp(s string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05", s)
-}
-
-// isValidUsername checks if the given username is valid according to specified rules.
-// Returns true if the username is valid, false otherwise.
-// Rules: 3-20 characters long, alphanumeric, underscores, no spaces, must start with a letter.
-func isValidUsername(username string) bool {
-	// Length check
-	if len(username) < 3 || len(username) > 20 {
-		return false
-	}
-
-	// Regular expression check: must match the pattern ^[a-zA-Z][a-zA-Z0-9_]*$.
-	re := regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]*$")
-	return re.MatchString(username)
 }
