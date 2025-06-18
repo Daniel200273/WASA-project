@@ -2,12 +2,20 @@ package database
 
 import (
 	"database/sql"
+	"regexp"
 	"time"
 )
 
 // === DATABASE UTILITIES ===
+//
+// These helper functions provide common database operations for converting
+// database rows into Go structs and handling common database tasks.
 
-// Helper function to scan user from database row
+// === USER SCANNING FUNCTIONS ===
+
+// scanUser converts a single database row into a User struct.
+// Used after QueryRow() calls to map database columns to User fields.
+// Expected column order: id, username, photo_url, created_at
 func scanUser(row *sql.Row) (*User, error) {
 	var user User
 	err := row.Scan(
@@ -22,7 +30,10 @@ func scanUser(row *sql.Row) (*User, error) {
 	return &user, nil
 }
 
-// Helper function to scan users from database rows
+// scanUsers converts multiple database rows into a slice of User structs.
+// Used after Query() calls when retrieving multiple users.
+// Expected column order: id, username, photo_url, created_at
+// Automatically handles closing rows and iterating through all records.
 func scanUsers(rows *sql.Rows) ([]User, error) {
 	var users []User
 	defer rows.Close()
@@ -48,7 +59,11 @@ func scanUsers(rows *sql.Rows) ([]User, error) {
 	return users, nil
 }
 
-// Helper function to scan conversation from database row
+// === CONVERSATION SCANNING FUNCTIONS ===
+
+// scanConversation converts a single database row into a Conversation struct.
+// Used after QueryRow() calls to map database columns to Conversation fields.
+// Expected column order: id, type, name, photo_url, created_by, created_at
 func scanConversation(row *sql.Row) (*Conversation, error) {
 	var conv Conversation
 	err := row.Scan(
@@ -65,7 +80,10 @@ func scanConversation(row *sql.Row) (*Conversation, error) {
 	return &conv, nil
 }
 
-// Helper function to scan conversations from database rows
+// scanConversations converts multiple database rows into a slice of Conversation structs.
+// Used after Query() calls when retrieving multiple conversations.
+// Expected column order: id, type, name, photo_url, created_by, created_at
+// Automatically handles closing rows and iterating through all records.
 func scanConversations(rows *sql.Rows) ([]Conversation, error) {
 	var conversations []Conversation
 	defer rows.Close()
@@ -93,7 +111,12 @@ func scanConversations(rows *sql.Rows) ([]Conversation, error) {
 	return conversations, nil
 }
 
-// Helper function to scan message from database row
+// === MESSAGE SCANNING FUNCTIONS ===
+
+// scanMessage converts a single database row into a Message struct.
+// Used after QueryRow() calls to map database columns to Message fields.
+// Expected column order: id, conversation_id, sender_id, sender_username, content, photo_url, reply_to_id, forwarded, created_at
+// Also extracts sender username and sets default status to "sent"
 func scanMessage(row *sql.Row) (*Message, error) {
 	var msg Message
 	var senderUsername string
@@ -116,7 +139,11 @@ func scanMessage(row *sql.Row) (*Message, error) {
 	return &msg, nil
 }
 
-// Helper function to scan messages from database rows
+// scanMessages converts multiple database rows into a slice of Message structs.
+// Used after Query() calls when retrieving multiple messages.
+// Expected column order: id, conversation_id, sender_id, sender_username, content, photo_url, reply_to_id, forwarded, created_at
+// Also extracts sender username and sets default status to "sent"
+// Automatically handles closing rows and iterating through all records.
 func scanMessages(rows *sql.Rows) ([]Message, error) {
 	var messages []Message
 	defer rows.Close()
@@ -150,7 +177,12 @@ func scanMessages(rows *sql.Rows) ([]Message, error) {
 	return messages, nil
 }
 
-// Helper function to scan message reaction from database row
+// === MESSAGE REACTION SCANNING FUNCTIONS ===
+
+// scanMessageReaction converts a single database row into a MessageReaction struct.
+// Used after QueryRow() calls to map database columns to MessageReaction fields.
+// Expected column order: id, message_id, user_id, username, emoticon, created_at
+// Also extracts username of the user who reacted
 func scanMessageReaction(row *sql.Row) (*MessageReaction, error) {
 	var reaction MessageReaction
 	var username string
@@ -169,7 +201,11 @@ func scanMessageReaction(row *sql.Row) (*MessageReaction, error) {
 	return &reaction, nil
 }
 
-// Helper function to scan message reactions from database rows
+// scanMessageReactions converts multiple database rows into a slice of MessageReaction structs.
+// Used after Query() calls when retrieving multiple message reactions.
+// Expected column order: id, message_id, user_id, username, emoticon, created_at
+// Also extracts username of the user who reacted
+// Automatically handles closing rows and iterating through all records.
 func scanMessageReactions(rows *sql.Rows) ([]MessageReaction, error) {
 	var reactions []MessageReaction
 	defer rows.Close()
@@ -199,17 +235,39 @@ func scanMessageReactions(rows *sql.Rows) ([]MessageReaction, error) {
 	return reactions, nil
 }
 
-// Helper function to check if error is "not found"
+// === UTILITY FUNCTIONS ===
+
+// isNotFoundError checks if an error is sql.ErrNoRows (record not found).
+// Used to distinguish between "not found" vs actual database errors.
+// Returns true if the error indicates no rows were found in the query result.
 func isNotFoundError(err error) bool {
 	return err == sql.ErrNoRows
 }
 
-// Helper function to format timestamp for SQLite
+// formatTimestamp converts Go time.Time to SQLite format string.
+// SQLite uses the format "2006-01-02 15:04:05" for datetime storage.
+// This function helps when you need to format timestamps for SQL queries.
 func formatTimestamp(t time.Time) string {
 	return t.Format("2006-01-02 15:04:05")
 }
 
-// Helper function to parse timestamp from SQLite
+// parseTimestamp converts SQLite timestamp string back to Go time.Time.
+// This function helps when you need to parse timestamps from SQL query results.
+// Counterpart to formatTimestamp for bidirectional timestamp conversion.
 func parseTimestamp(s string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05", s)
+}
+
+// isValidUsername checks if the given username is valid according to specified rules.
+// Returns true if the username is valid, false otherwise.
+// Rules: 3-20 characters long, alphanumeric, underscores, no spaces, must start with a letter.
+func isValidUsername(username string) bool {
+	// Length check
+	if len(username) < 3 || len(username) > 20 {
+		return false
+	}
+
+	// Regular expression check: must match the pattern ^[a-zA-Z][a-zA-Z0-9_]*$.
+	re := regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]*$")
+	return re.MatchString(username)
 }
