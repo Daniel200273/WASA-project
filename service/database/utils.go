@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -240,7 +241,7 @@ func scanMessageReactions(rows *sql.Rows) ([]MessageReaction, error) {
 // Used to distinguish between "not found" vs actual database errors.
 // Returns true if the error indicates no rows were found in the query result.
 func isNotFoundError(err error) bool {
-	return err == sql.ErrNoRows
+	return errors.Is(err, sql.ErrNoRows)
 }
 
 // formatTimestamp converts Go time.Time to SQLite format string.

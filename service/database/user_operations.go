@@ -31,8 +31,28 @@ func (db *appdbimpl) UpdateUserPhoto(userID, photoURL string) error {
 func (db *appdbimpl) SearchUsers(query string, excludeUserID string) ([]User, error) {
 	// TODO: Implement user search
 	// 1. Search users by username (case-insensitive LIKE query)
-	// 2. Exclude the specified user ID from results
-	// 3. Limit results to prevent large result sets
+	sqlQuery := `
+		SELECT id, username, photo_url, created_at
+		FROM users
+		WHERE username LIKE ? COLLATE NOCASE
+		AND id != ?
+		ORDER BY username
+		LIMIT 20
+	`
+	// 2. Prepare search pattern (% for substring matching)
+	searchPattern := "%" + query + "%"
+
+	// 3. Execute query
+	rows, err := db.c.Query(sqlQuery, searchPattern, excludeUserID)
+	if err != nil {
+		return nil, fmt.Errorf("error searching users: %w", err)
+	}
+	defer rows.Close()
+	// 4. Scan results using existing helper function
+	users, err := scanUsers(rows)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning user results: %w", err)
+	}
 	// 4. Return list of matching users
 
 	return nil, fmt.Errorf("SearchUsers not implemented")

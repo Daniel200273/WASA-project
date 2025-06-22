@@ -22,7 +22,7 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 	// 8. Save photo file if it's a photo message
 	// 9. Create message in database
 	// 10. Return created message as JSON response
-	
+
 	ctx.Logger.Info("sendMessage endpoint called - TODO: implement")
 	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
@@ -40,7 +40,7 @@ func (rt *_router) forwardMessage(w http.ResponseWriter, r *http.Request, ps htt
 	// 8. Get original message details
 	// 9. Create forwarded message in target conversation
 	// 10. Return created message as JSON response
-	
+
 	ctx.Logger.Info("forwardMessage endpoint called - TODO: implement")
 	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
@@ -54,7 +54,7 @@ func (rt *_router) deleteMessage(w http.ResponseWriter, r *http.Request, ps http
 	// 4. Check if message exists and was sent by current user
 	// 5. Delete message from database (consider cascade effects on reactions)
 	// 6. Return 204 No Content response
-	
+
 	ctx.Logger.Info("deleteMessage endpoint called - TODO: implement")
 	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
@@ -71,7 +71,7 @@ func (rt *_router) commentMessage(w http.ResponseWriter, r *http.Request, ps htt
 	// 7. Check if user already reacted to this message (update vs create)
 	// 8. Create or update reaction in database
 	// 9. Return created/updated reaction as JSON response
-	
+
 	ctx.Logger.Info("commentMessage endpoint called - TODO: implement")
 	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
@@ -85,7 +85,7 @@ func (rt *_router) uncommentMessage(w http.ResponseWriter, r *http.Request, ps h
 	// 4. Check if comment exists and was created by current user
 	// 5. Delete reaction from database
 	// 6. Return 204 No Content response
-	
+
 	ctx.Logger.Info("uncommentMessage endpoint called - TODO: implement")
 	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
