@@ -9,22 +9,49 @@ import (
 // UpdateUsername updates a user's username
 func (db *appdbimpl) UpdateUsername(userID, newUsername string) error {
 	// TODO: Implement username update
-	// 1. Check if new username is already taken
-	// 2. Update user's username in database
-	// 3. Handle unique constraint violations
-	// 4. Return error if any
+	query := `	
+		UPDATE users
+		SET username = ?
+ 		WHERE id = ?
+	`
+	// 1. Update user's username in database
+	_, err := db.c.Exec(query, newUsername, userID)
 
-	return fmt.Errorf("UpdateUsername not implemented")
+	// 2. Handle user not found case
+	if err != nil && isNotFoundError(err) {
+		return fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return fmt.Errorf("error updating username: %w", err)
+	}
+
+	// 3. return nil if successful
+	return nil
 }
 
 // UpdateUserPhoto updates a user's profile photo URL
 func (db *appdbimpl) UpdateUserPhoto(userID, photoURL string) error {
 	// TODO: Implement user photo update
 	// 1. Update user's photo_url in database
-	// 2. Handle user not found case
-	// 3. Return error if any
+	query := `
+	 	UPDATE users
+	 	SET photo_url = ?
+	   	WHERE id = ?
+	 `
+	_, err := db.c.Exec(query, photoURL, userID)
 
-	return fmt.Errorf("UpdateUserPhoto not implemented")
+	// 2. Handle user not found case
+	if err != nil && isNotFoundError(err) {
+		return fmt.Errorf("user not found")
+	}
+
+	// 3. Handle other errors
+	if err != nil {
+		return fmt.Errorf("error updating user photo: %w", err)
+	}
+
+	// 3. Return error nil if successful
+	return nil
 }
 
 // SearchUsers searches for users by query string, excluding the specified user
@@ -55,5 +82,5 @@ func (db *appdbimpl) SearchUsers(query string, excludeUserID string) ([]User, er
 	}
 	// 4. Return list of matching users
 
-	return nil, fmt.Errorf("SearchUsers not implemented")
+	return users, nil
 }

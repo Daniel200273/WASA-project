@@ -34,5 +34,8 @@ func (rt *_router) Handler() http.Handler {
 	rt.router.PUT("/groups/:groupId/name", rt.wrap(rt.setGroupName, true))
 	rt.router.PUT("/groups/:groupId/photo", rt.wrap(rt.setGroupPhoto, true))
 
+	// Static file serving for uploaded images (temporary storage)
+	rt.router.ServeFiles("/uploads/*filepath", http.Dir("tmp/uploads"))
+
 	return rt.router
 }

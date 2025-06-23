@@ -38,10 +38,11 @@ package api
 
 import (
 	"errors"
+	"net/http"
+
 	"github.com/Daniel200273/WASA-project/service/database"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 // Config is used to provide dependencies and configuration to the New function.
@@ -77,6 +78,13 @@ func New(cfg Config) (Router, error) {
 	router := httprouter.New()
 	router.RedirectTrailingSlash = false
 	router.RedirectFixedPath = false
+
+	// Initialize the uploads directory for image storage
+	if err := initializeUploadsDirectory(); err != nil {
+		cfg.Logger.WithError(err).Error("error initializing uploads directory")
+		return nil, errors.New("failed to initialize uploads directory")
+	}
+	cfg.Logger.Info("uploads directory initialized successfully")
 
 	return &_router{
 		router:     router,

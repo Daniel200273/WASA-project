@@ -3,7 +3,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -223,6 +227,82 @@ func validateImageFile(r *http.Request, fieldName string) error {
 	}
 
 	return nil
+}
+
+// saveUploadedImage saves an uploaded image file to the temporary uploads directory
+// Returns the URL path for accessing the saved image
+func saveUploadedImage(file multipart.File, category, filename string) (string, error) {
+	// Create the uploads directory structure in tmp
+	uploadsDir := filepath.Join("tmp", "uploads", category)
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create upload directory: %w", err)
+	}
+
+	// Create the destination file path
+	destPath := filepath.Join(uploadsDir, filename)
+
+	// Create the destination file
+	destFile, err := os.Create(destPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer destFile.Close()
+
+	// Reset file pointer to beginning
+	if _, err := file.Seek(0, 0); err != nil {
+		return "", fmt.Errorf("failed to reset file pointer: %w", err)
+	}
+
+	// Copy the uploaded file to destination
+	if _, err := io.Copy(destFile, file); err != nil {
+		return "", fmt.Errorf("failed to save file: %w", err)
+	}
+
+	// Return the URL path (without tmp prefix for serving)
+	urlPath := fmt.Sprintf("/uploads/%s/%s", category, filename)
+	return urlPath, nil
+}
+
+// initializeUploadsDirectory creates the temporary uploads directory structure
+// Call this at application startup to ensure directories exist
+func initializeUploadsDirectory() error {
+	categories := []string{"profiles", "groups", "messages"}
+
+	for _, category := range categories {
+		dir := filepath.Join("tmp", "uploads", category)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create upload directory %s: %w", dir, err)
+		}
+	}
+
+	return nil
+}
+
+// cleanupUploadsDirectory removes the temporary uploads directory
+// Call this at application shutdown if needed
+func cleanupUploadsDirectory() error {
+	uploadsDir := filepath.Join("tmp", "uploads")
+	if err := os.RemoveAll(uploadsDir); err != nil {
+		return fmt.Errorf("failed to cleanup uploads directory: %w", err)
+	}
+	return nil
+}
+
+// getUploadedFile extracts and validates an uploaded file from the request
+// Returns the file, header, and any validation error
+func getUploadedFile(r *http.Request, fieldName string) (multipart.File, *multipart.FileHeader, error) {
+	// Validate the uploaded file first
+	if err := validateImageFile(r, fieldName); err != nil {
+		return nil, nil, err
+	}
+
+	// Get the file from the form
+	file, header, err := r.FormFile(fieldName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get uploaded file: %w", err)
+	}
+
+	return file, header, nil
 }
 
 // === UTILITY FUNCTIONS ===

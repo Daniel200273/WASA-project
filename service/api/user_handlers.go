@@ -1,7 +1,10 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/Daniel200273/WASA-project/service/api/reqcontext"
 	"github.com/julienschmidt/httprouter"
@@ -63,17 +66,46 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 
 // setMyPhoto handles updating the current user's profile photo
 func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// TODO: Implementation needed
-	// 1. Parse multipart form data to get photo file
-	// 2. Validate file format (JPEG, PNG, etc.)
-	// 3. Validate file size (max 10MB)
-	// 4. Save photo file to storage
-	// 5. Get current user from context/token
-	// 6. Update user's photo_url in database
-	// 7. Return success response
+	// 1. Get current user from context/token
+	userID := ctx.UserID
+	if userID == "" {
+		sendErrorResponse(w, http.StatusUnauthorized, "Authentication required", ctx)
+		return
+	}
 
-	ctx.Logger.Info("setMyPhoto endpoint called - TODO: implement")
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
+	// 2. Get and validate uploaded file
+	file, header, err := getUploadedFile(r, "photo")
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
+		return
+	}
+	defer file.Close()
+
+	// 3. Generate filename (use userID to ensure uniqueness)
+	fileExt := strings.ToLower(filepath.Ext(header.Filename))
+	if fileExt == "" {
+		fileExt = ".jpg" // default extension
+	}
+	filename := fmt.Sprintf("%s%s", userID, fileExt)
+
+	// 4. Save photo file to temporary storage
+	photoURL, err := saveUploadedImage(file, "profiles", filename)
+	if err != nil {
+		ctx.Logger.Error("Failed to save profile photo", "error", err, "userID", userID)
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to save photo", ctx)
+		return
+	}
+
+	// 5. Update user's photo_url in database
+	if err := rt.db.UpdateUserPhoto(userID, photoURL); err != nil {
+		ctx.Logger.Error("Failed to update user photo in database", "error", err, "userID", userID)
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to update photo", ctx)
+		return
+	}
+
+	// 6. Return success response
+	w.WriteHeader(http.StatusNoContent)
+	ctx.Logger.Info("Profile photo updated successfully", "userID", userID, "photoURL", photoURL)
 }
 
 // searchUsers handles searching for users by username
