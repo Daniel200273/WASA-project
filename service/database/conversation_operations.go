@@ -144,19 +144,13 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 
 // GetConversation retrieves a specific conversation for a user
 func (db *appdbimpl) GetConversation(conversationID, userID string) (*Conversation, error) {
-	// 1. Verify user has access to the conversation
-	isParticipant, err := db.IsUserInConversation(conversationID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("error checking if user in conversation: %w", err)
-	}
-	if !isParticipant {
-		return nil, fmt.Errorf("user is not a participant in this conversation")
-	}
 
-	// 2. Get conversation details
-	query := `SELECT c.id, c.type, c.name, c.photo_url, c.created_by, c.created_at, c.last_message_at
+	// 1. Get conversation details
+	query := `
+		SELECT c.id, c.type, c.name, c.photo_url, c.created_by, c.created_at, c.last_message_at
 		FROM conversations c
-		WHERE c.id = ?`
+		WHERE c.id = ?
+	`
 
 	row := db.c.QueryRow(query, conversationID)
 	conv, err := scanConversation(row)
@@ -164,7 +158,7 @@ func (db *appdbimpl) GetConversation(conversationID, userID string) (*Conversati
 		return nil, fmt.Errorf("error retrieving conversation: %w", err)
 	}
 
-	// 3. Get all participants
+	// 2. Get all participants
 	participantsQuery := `
 		SELECT u.id, u.username, u.photo_url, u.created_at
 		FROM users u

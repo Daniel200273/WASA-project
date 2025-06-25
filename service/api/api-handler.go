@@ -18,6 +18,7 @@ func (rt *_router) Handler() http.Handler {
 	rt.router.PUT("/users/me/username", rt.wrap(rt.setMyUserName, true))
 	rt.router.PUT("/users/me/photo", rt.wrap(rt.setMyPhoto, true))
 	rt.router.GET("/users", rt.wrap(rt.searchUsers, true))
+	rt.router.POST("/users/:userId/conversations", rt.wrap(rt.startConversation, true))
 
 	// Conversations endpoints
 	rt.router.GET("/conversations", rt.wrap(rt.getMyConversations, true))

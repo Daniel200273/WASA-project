@@ -69,17 +69,107 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 
 // getConversation handles getting messages in a specific conversation
 func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// TODO: Implementation needed
 	// 1. Get conversationId from URL path parameters
-	// 2. Validate conversationId format
-	// 3. Get current user from context/token
-	// 4. Check if user is participant in the conversation
-	// 5. Get conversation details (type, name, photo, members)
-	// 6. Get all messages in conversation with sender info
-	// 7. Get reactions/comments for each message
-	// 8. Mark messages as read for current user
-	// 9. Format response as JSON with conversation details and messages
+	conversationID := ps.ByName("conversationId")
 
-	ctx.Logger.Info("getConversation endpoint called - TODO: implement")
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
+	// 2. Validate conversationId format
+	if err := validateID(conversationID, "conversationId"); err != nil {
+		ctx.Logger.Error("Invalid conversation ID", "error", err)
+		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
+		return
+	}
+
+	// 3. Get current user from context/token
+	userID := ctx.UserID
+
+	// 4. Check if user is participant in the conversation
+	if val, err := rt.db.IsUserInConversation(conversationID, userID); !val && err == nil {
+		ctx.Logger.Error("User not authorized to access conversation", "userID", userID, "conversationID", conversationID)
+		sendErrorResponse(w, http.StatusForbidden, "Unauthorized access to conversation", ctx)
+		return
+	} else if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to check user participation in conversation")
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to check conversation participation", ctx)
+		return
+	}
+
+	// 5. Get conversation details (type, name, photo, members)
+	conversationDetails, err := rt.db.GetConversation(conversationID, userID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to retrieve conversation details")
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve conversation details", ctx)
+		return
+	}
+
+	// 6. Get all messages in conversation with sender info
+	messages, err := rt.db.GetConversationMessages(conversationID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to retrieve conversation messages")
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve messages", ctx)
+		return
+	}
+
+	// 7. Format response as JSON with conversation details and messages
+	response := ConversationDetailResponse{
+		ID:   conversationDetails.ID,
+		Type: conversationDetails.Type,
+	}
+
+	// Handle conversation name - for direct conversations, use other participant's name
+	if conversationDetails.Type == "direct" && conversationDetails.OtherParticipant != nil {
+		response.Name = conversationDetails.OtherParticipant.Username
+	} else if conversationDetails.Name != nil {
+		response.Name = *conversationDetails.Name
+	} else {
+		response.Name = "Conversation" // Fallback name
+	}
+
+	// Handle photo URL
+	response.PhotoURL = conversationDetails.PhotoURL
+
+	// Convert participants to members format
+	response.Members = make([]UserResponse, len(conversationDetails.Participants))
+	for i, participant := range conversationDetails.Participants {
+		response.Members[i] = UserResponse{
+			ID:       participant.ID,
+			Username: participant.Username,
+			PhotoURL: participant.PhotoURL,
+		}
+	}
+
+	// Convert messages to response format
+	response.Messages = make([]MessageResponse, len(messages))
+	for i, msg := range messages {
+		// Convert comments/reactions
+		comments := make([]CommentResponse, len(msg.Comments))
+		for j, comment := range msg.Comments {
+			comments[j] = CommentResponse{
+				ID:        comment.ID,
+				UserID:    comment.UserID,
+				Username:  comment.Username,
+				Emoticon:  comment.Emoticon,
+				Timestamp: comment.CreatedAt,
+			}
+		}
+
+		response.Messages[i] = MessageResponse{
+			ID:             msg.ID,
+			SenderID:       msg.SenderID,
+			SenderUsername: msg.SenderUsername,
+			Content:        msg.Content,
+			PhotoURL:       msg.PhotoURL,
+			ReplyToID:      msg.ReplyToID,
+			Forwarded:      msg.Forwarded,
+			Timestamp:      msg.CreatedAt,
+			Status:         msg.Status,
+			Comments:       comments,
+		}
+	}
+
+	// 8. Return the response as JSON
+	if err := sendJSONResponse(w, http.StatusOK, response); err != nil {
+		ctx.Logger.WithError(err).Error("failed to send conversation response")
+	}
+
+	ctx.Logger.Info("Retrieved conversation successfully", "conversationID", conversationID, "messageCount", len(messages))
 }

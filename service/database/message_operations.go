@@ -27,7 +27,13 @@ func (db *appdbimpl) CreateMessage(conversationID, senderID string, content *str
 
 	// 3. If replyToID is provided, validate that the message exists in the same conversation
 	if replyToID != nil && *replyToID != "" {
-		// Validation logic for reply would go here
+		replyMessage, err := db.GetMessage(*replyToID)
+		if err != nil {
+			return nil, fmt.Errorf("reply target message not found: %w", err)
+		}
+		if replyMessage.ConversationID != conversationID {
+			return nil, fmt.Errorf("cannot reply to message from different conversation")
+		}
 	}
 
 	// 4. Generate message ID and insert into database
@@ -73,24 +79,84 @@ func (db *appdbimpl) CreateMessage(conversationID, senderID string, content *str
 
 // GetMessage retrieves a message by its ID
 func (db *appdbimpl) GetMessage(messageID string) (*Message, error) {
-	// TODO: Implement message retrieval
-	// 1. Query message from database by ID
-	// 2. Join with users table to get sender username
-	// 3. Handle message not found case
-	// 4. Return message or error
+	// Query message from database by ID with sender username
+	query := `
+		SELECT m.id, m.conversation_id, m.sender_id, u.username, m.content, 
+			   m.photo_url, m.reply_to_id, m.forwarded, m.created_at
+		FROM messages m
+		JOIN users u ON m.sender_id = u.id
+		WHERE m.id = ?
+	`
 
-	return nil, fmt.Errorf("GetMessage not implemented")
+	row := db.c.QueryRow(query, messageID)
+
+	var msg Message
+	err := row.Scan(
+		&msg.ID,
+		&msg.ConversationID,
+		&msg.SenderID,
+		&msg.SenderUsername,
+		&msg.Content,
+		&msg.PhotoURL,
+		&msg.ReplyToID,
+		&msg.Forwarded,
+		&msg.CreatedAt,
+	)
+
+	if err != nil {
+		if isNotFoundError(err) {
+			return nil, fmt.Errorf("message not found")
+		}
+		return nil, fmt.Errorf("error retrieving message: %w", err)
+	}
+
+	// Set message status (for now, just set as "sent")
+	msg.Status = "sent"
+
+	// Get reactions/comments for this message
+	msg.Comments, err = db.getMessageReactions(msg.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting message reactions: %w", err)
+	}
+
+	return &msg, nil
 }
 
 // DeleteMessage deletes a message (only by the sender)
 func (db *appdbimpl) DeleteMessage(messageID, userID string) error {
-	// TODO: Implement message deletion
 	// 1. Verify that the user is the sender of the message
-	// 2. Delete the message from database
-	// 3. Handle message not found or unauthorized cases
-	// 4. Note: Consider cascade effects on reactions and replies
+	query := `SELECT sender_id FROM messages WHERE id = ?`
+	var senderID string
+	err := db.c.QueryRow(query, messageID).Scan(&senderID)
+	if err != nil {
+		if isNotFoundError(err) {
+			return fmt.Errorf("message not found")
+		}
+		return fmt.Errorf("error checking message ownership: %w", err)
+	}
 
-	return fmt.Errorf("DeleteMessage not implemented")
+	if senderID != userID {
+		return fmt.Errorf("unauthorized: user can only delete their own messages")
+	}
+
+	// 2. Delete the message from database
+	// Note: Reactions and replies will be handled by cascade DELETE constraints
+	deleteQuery := `DELETE FROM messages WHERE id = ?`
+	result, err := db.c.Exec(deleteQuery, messageID)
+	if err != nil {
+		return fmt.Errorf("error deleting message: %w", err)
+	}
+
+	// 3. Verify deletion was successful
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking deletion result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("message not found or already deleted")
+	}
+
+	return nil
 }
 
 // ForwardMessage forwards a message to another conversation
@@ -153,4 +219,99 @@ func (db *appdbimpl) ForwardMessage(messageID, targetConversationID, userID stri
 
 	// 5. Return the new forwarded message
 	return db.GetMessage(forwardedMessageID)
+}
+
+// GetConversationMessages retrieves all messages in a conversation
+func (db *appdbimpl) GetConversationMessages(conversationID string) ([]Message, error) {
+	// Query to get all messages in the conversation with sender usernames
+	query := `
+		SELECT m.id, m.conversation_id, m.sender_id, u.username, m.content, 
+			   m.photo_url, m.reply_to_id, m.forwarded, m.created_at
+		FROM messages m
+		JOIN users u ON m.sender_id = u.id
+		WHERE m.conversation_id = ?
+		ORDER BY m.created_at ASC
+	`
+
+	rows, err := db.c.Query(query, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("error querying conversation messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []Message
+	for rows.Next() {
+		var msg Message
+		err := rows.Scan(
+			&msg.ID,
+			&msg.ConversationID,
+			&msg.SenderID,
+			&msg.SenderUsername,
+			&msg.Content,
+			&msg.PhotoURL,
+			&msg.ReplyToID,
+			&msg.Forwarded,
+			&msg.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning message: %w", err)
+		}
+
+		// Set message status (for now, just set as "sent" - this would be enhanced with read receipts)
+		msg.Status = "sent"
+
+		// Get reactions/comments for this message
+		msg.Comments, err = db.getMessageReactions(msg.ID)
+		if err != nil {
+			return nil, fmt.Errorf("error getting message reactions: %w", err)
+		}
+
+		messages = append(messages, msg)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over messages: %w", err)
+	}
+
+	return messages, nil
+}
+
+// getMessageReactions retrieves all reactions for a specific message
+func (db *appdbimpl) getMessageReactions(messageID string) ([]MessageReaction, error) {
+	query := `
+		SELECT mr.id, mr.message_id, mr.user_id, u.username, mr.emoticon, mr.created_at
+		FROM message_reactions mr
+		JOIN users u ON mr.user_id = u.id
+		WHERE mr.message_id = ?
+		ORDER BY mr.created_at ASC
+	`
+
+	rows, err := db.c.Query(query, messageID)
+	if err != nil {
+		return nil, fmt.Errorf("error querying message reactions: %w", err)
+	}
+	defer rows.Close()
+
+	var reactions []MessageReaction
+	for rows.Next() {
+		var reaction MessageReaction
+		err := rows.Scan(
+			&reaction.ID,
+			&reaction.MessageID,
+			&reaction.UserID,
+			&reaction.Username,
+			&reaction.Emoticon,
+			&reaction.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning reaction: %w", err)
+		}
+		reactions = append(reactions, reaction)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over reactions: %w", err)
+	}
+
+	return reactions, nil
 }

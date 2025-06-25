@@ -8,49 +8,61 @@ import (
 
 // UpdateUsername updates a user's username
 func (db *appdbimpl) UpdateUsername(userID, newUsername string) error {
-	// TODO: Implement username update
+	// 1. Check if the new username is already taken by another user
+	checkQuery := `SELECT id FROM users WHERE username = ? AND id != ?`
+	var existingUserID string
+	err := db.c.QueryRow(checkQuery, newUsername, userID).Scan(&existingUserID)
+	if err == nil {
+		return fmt.Errorf("username already taken")
+	} else if !isNotFoundError(err) {
+		return fmt.Errorf("error checking username availability: %w", err)
+	}
+
+	// 2. Update user's username in database
 	query := `	
 		UPDATE users
 		SET username = ?
  		WHERE id = ?
 	`
-	// 1. Update user's username in database
-	_, err := db.c.Exec(query, newUsername, userID)
-
-	// 2. Handle user not found case
-	if err != nil && isNotFoundError(err) {
-		return fmt.Errorf("user not found")
-	}
+	result, err := db.c.Exec(query, newUsername, userID)
 	if err != nil {
 		return fmt.Errorf("error updating username: %w", err)
 	}
 
-	// 3. return nil if successful
+	// 3. Check if user was found and updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking update result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
 	return nil
 }
 
 // UpdateUserPhoto updates a user's profile photo URL
 func (db *appdbimpl) UpdateUserPhoto(userID, photoURL string) error {
-	// TODO: Implement user photo update
 	// 1. Update user's photo_url in database
 	query := `
 	 	UPDATE users
 	 	SET photo_url = ?
 	   	WHERE id = ?
 	 `
-	_, err := db.c.Exec(query, photoURL, userID)
-
-	// 2. Handle user not found case
-	if err != nil && isNotFoundError(err) {
-		return fmt.Errorf("user not found")
-	}
-
-	// 3. Handle other errors
+	result, err := db.c.Exec(query, photoURL, userID)
 	if err != nil {
 		return fmt.Errorf("error updating user photo: %w", err)
 	}
 
-	// 3. Return error nil if successful
+	// 2. Check if user was found and updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking update result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
 	return nil
 }
 
