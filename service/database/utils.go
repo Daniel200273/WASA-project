@@ -63,7 +63,7 @@ func scanUsers(rows *sql.Rows) ([]User, error) {
 
 // scanConversation converts a single database row into a Conversation struct.
 // Used after QueryRow() calls to map database columns to Conversation fields.
-// Expected column order: id, type, name, photo_url, created_by, created_at
+// Expected column order: id, type, name, photo_url, created_by, created_at, last_message_at
 func scanConversation(row *sql.Row) (*Conversation, error) {
 	var conv Conversation
 	err := row.Scan(
@@ -73,6 +73,7 @@ func scanConversation(row *sql.Row) (*Conversation, error) {
 		&conv.PhotoURL,
 		&conv.CreatedBy,
 		&conv.CreatedAt,
+		&conv.LastMessageAt,
 	)
 	if err != nil {
 		return nil, err
@@ -82,7 +83,7 @@ func scanConversation(row *sql.Row) (*Conversation, error) {
 
 // scanConversations converts multiple database rows into a slice of Conversation structs.
 // Used after Query() calls when retrieving multiple conversations.
-// Expected column order: id, type, name, photo_url, created_by, created_at
+// Expected column order: id, type, name, photo_url, created_by, created_at, last_message_at
 // Automatically handles closing rows and iterating through all records.
 func scanConversations(rows *sql.Rows) ([]Conversation, error) {
 	var conversations []Conversation
@@ -97,6 +98,7 @@ func scanConversations(rows *sql.Rows) ([]Conversation, error) {
 			&conv.PhotoURL,
 			&conv.CreatedBy,
 			&conv.CreatedAt,
+			&conv.LastMessageAt,
 		)
 		if err != nil {
 			return nil, err

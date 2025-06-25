@@ -26,29 +26,14 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 		return
 	}
 
-	// 3. Get current user from context/token
+	// 3. Get current user from context/token (already authenticated by wrapper)
 	userID := ctx.UserID
-	if userID == "" {
-		sendErrorResponse(w, http.StatusUnauthorized, "Authentication required", ctx)
-		return
-	}
 
 	// 4. Check if new username is already taken
-	existingUser, err := rt.db.GetUserByUsername(req.Name)
-	if err != nil {
+	_, err := rt.db.GetUserByUsername(req.Name)
+	if err != nil && err.Error() != "user not found" {
 		ctx.Logger.Error("Failed to check existing username", "error", err)
 		sendErrorResponse(w, http.StatusInternalServerError, "Internal server error", ctx)
-		return
-	}
-
-	if existingUser != nil {
-		if existingUser.ID != userID {
-			sendErrorResponse(w, http.StatusConflict, "Username already taken", ctx)
-			return
-		}
-		// User is setting the same username they already have - allow it (idempotent operation)
-		w.WriteHeader(http.StatusNoContent)
-		ctx.Logger.Info("Username unchanged (same as current)", "userID", userID, "username", req.Name)
 		return
 	}
 
@@ -66,12 +51,8 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 
 // setMyPhoto handles updating the current user's profile photo
 func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// 1. Get current user from context/token
+	// 1. Get current user from context/token (already authenticated by wrapper)
 	userID := ctx.UserID
-	if userID == "" {
-		sendErrorResponse(w, http.StatusUnauthorized, "Authentication required", ctx)
-		return
-	}
 
 	// 2. Get and validate uploaded file
 	file, header, err := getUploadedFile(r, "photo")
@@ -123,12 +104,8 @@ func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httpro
 		return
 	}
 
-	// 3. Get current user from context/token (to exclude from results)
+	// 3. Get current user from context/token (to exclude from results, already authenticated by wrapper)
 	userID := ctx.UserID
-	if userID == "" {
-		sendErrorResponse(w, http.StatusUnauthorized, "Authentication required", ctx)
-		return
-	}
 
 	// 4. Search users in database using query (find users containing the search string)
 	users, err := rt.db.SearchUsers(query, userID)

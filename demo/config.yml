@@ -8,6 +8,11 @@ log:
 #  destination: stderr
 #  file: /tmp/debug.log
 #  combinedtostdout: true
+
+# Database configuration - stored in /tmp and cleared on shutdown
+db:
+  filename: /tmp/decaf.db
+
 #web:
 #  apihost: 0.0.0.0:3000
 #  debughost: 0.0.0.0:4000

@@ -8,6 +8,9 @@ import (
 func (rt *_router) Handler() http.Handler {
 
 	// Register all API endpoints here
+	// Liveness endpoint for health checks
+	rt.router.GET("/liveness", rt.wrap(rt.liveness, false))
+
 	// Authentication endpoints
 	rt.router.POST("/session", rt.wrap(rt.doLogin, false)) // ❌ NO auth (è il login!)
 

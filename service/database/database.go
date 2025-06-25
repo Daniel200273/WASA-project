@@ -55,7 +55,7 @@ type AppDatabase interface {
 	SearchUsers(query string, excludeUserID string) ([]User, error)
 
 	// === CONVERSATIONS ===
-	GetUserConversations(userID string) ([]Conversation, error)
+	GetUserConversations(userID string) ([]ConversationPreview, error)
 	GetConversation(conversationID, userID string) (*Conversation, error)
 	GetOrCreateDirectConversation(user1ID, user2ID string) (*Conversation, error)
 
@@ -130,6 +130,7 @@ func (db *appdbimpl) initializeSchema() error {
 		photo_url TEXT,
 		created_by TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		last_message_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (created_by) REFERENCES users(id)
 	);
 	

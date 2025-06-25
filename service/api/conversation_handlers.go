@@ -9,19 +9,62 @@ import (
 
 // getMyConversations handles getting all conversations for the current user
 func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// TODO: Implementation needed
-	// 1. Get current user from context/token
-	// 2. Retrieve all conversations for the user from database
-	// 3. For each conversation:
-	//    - Get last message details
-	//    - Calculate unread count
-	//    - For direct conversations, get other participant info
-	//    - For group conversations, get group details
-	// 4. Sort conversations by last message timestamp (most recent first)
-	// 5. Format response as JSON with conversations array
+	// 1. Get current user from context/token (already authenticated by wrapper)
+	userID := ctx.UserID
 
-	ctx.Logger.Info("getMyConversations endpoint called - TODO: implement")
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
+	// 2. Retrieve all conversations for the user from database
+	dbConversations, err := rt.db.GetUserConversations(userID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("failed to retrieve user conversations")
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve conversations", ctx)
+		return
+	}
+
+	// 3. Map database models to API response format
+	response := ConversationsResponse{
+		Conversations: make([]ConversationResponse, len(dbConversations)),
+	}
+
+	for i, dbConv := range dbConversations {
+		// Convert each ConversationPreview to ConversationResponse
+		convResp := ConversationResponse{
+			ID:          dbConv.ID,
+			Type:        dbConv.Type,
+			UnreadCount: dbConv.UnreadCount,
+		}
+
+		// Handle name - check if direct conversation and use other participant's name if available
+		if dbConv.Type == "direct" && dbConv.OtherParticipant != nil {
+			convResp.Name = dbConv.OtherParticipant.Username
+		} else if dbConv.Name != nil {
+			convResp.Name = *dbConv.Name
+		} else {
+			convResp.Name = "Conversation" // Fallback name
+		}
+
+		// Handle photo URL
+		convResp.PhotoURL = dbConv.PhotoURL
+
+		// Convert last message if present
+		if dbConv.LastMessage != nil {
+			convResp.LastMessage = &MessagePreview{
+				ID:             dbConv.LastMessage.ID,
+				Content:        dbConv.LastMessage.Content,
+				Timestamp:      dbConv.LastMessage.Timestamp,
+				SenderUsername: dbConv.LastMessage.SenderUsername,
+				HasPhoto:       dbConv.LastMessage.HasPhoto,
+			}
+		}
+
+		response.Conversations[i] = convResp
+	}
+
+	// 4. Return the response as JSON
+	if err := sendJSONResponse(w, http.StatusOK, response); err != nil {
+		ctx.Logger.WithError(err).Error("failed to send conversations response")
+	}
+
+	ctx.Logger.Info("Retrieved conversations successfully", "count", len(dbConversations))
 }
 
 // getConversation handles getting messages in a specific conversation

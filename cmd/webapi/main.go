@@ -28,17 +28,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/Daniel200273/WASA-project/service/api"
 	"github.com/Daniel200273/WASA-project/service/database"
 	"github.com/Daniel200273/WASA-project/service/globaltime"
 	"github.com/ardanlabs/conf"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
-	"math/rand"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 // main is the program entry point. The only purpose of this function is to call run() and set the exit code if there is
@@ -80,6 +81,9 @@ func run() error {
 
 	logger.Infof("application initializing")
 
+	// Ensure database path is in /tmp
+	cfg.DB.Filename = "/tmp/decaf.db"
+
 	// Start Database
 	logger.Println("initializing database support")
 	dbconn, err := sql.Open("sqlite3", cfg.DB.Filename)
@@ -90,6 +94,17 @@ func run() error {
 	defer func() {
 		logger.Debug("database stopping")
 		_ = dbconn.Close()
+
+		// Delete the database file when the server shuts down
+		if err := os.Remove(cfg.DB.Filename); err != nil {
+			if !os.IsNotExist(err) {
+				logger.WithError(err).Error("error deleting database file")
+			} else {
+				logger.Debug("database file already deleted or does not exist")
+			}
+		} else {
+			logger.Info("database file successfully deleted")
+		}
 	}()
 	db, err := database.New(dbconn)
 	if err != nil {

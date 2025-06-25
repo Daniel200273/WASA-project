@@ -19,12 +19,13 @@ type UserSession struct {
 
 // Conversation rappresenta una conversazione (diretta o di gruppo)
 type Conversation struct {
-	ID        string    `json:"id" db:"id"`
-	Type      string    `json:"type" db:"type"` // "direct" | "group"
-	Name      *string   `json:"name,omitempty" db:"name"`
-	PhotoURL  *string   `json:"photoUrl,omitempty" db:"photo_url"`
-	CreatedBy *string   `json:"createdBy,omitempty" db:"created_by"`
-	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	ID            string    `json:"id" db:"id"`
+	Type          string    `json:"type" db:"type"` // "direct" | "group"
+	Name          *string   `json:"name,omitempty" db:"name"`
+	PhotoURL      *string   `json:"photoUrl,omitempty" db:"photo_url"`
+	CreatedBy     *string   `json:"createdBy,omitempty" db:"created_by"`
+	CreatedAt     time.Time `json:"createdAt" db:"created_at"`
+	LastMessageAt time.Time `json:"lastMessageAt" db:"last_message_at"`
 
 	// Campi calcolati per l'API (non salvati nel DB)
 	Members          []User    `json:"members,omitempty"`
@@ -85,4 +86,22 @@ type Group struct {
 	Members   []User    `json:"members"`
 	CreatedBy string    `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// ConversationPreview rappresenta un'anteprima di conversazione per la lista conversazioni
+type ConversationPreview struct {
+	ID            string          `json:"id"`
+	Type          string          `json:"type"` // "direct" | "group"
+	Name          *string         `json:"name,omitempty"`
+	PhotoURL      *string         `json:"photoUrl,omitempty"`
+	LastMessageAt time.Time       `json:"lastMessageAt"`
+	LastMessage   *MessagePreview `json:"lastMessage,omitempty"`
+	UnreadCount   int             `json:"unreadCount"`
+
+	// For direct conversations only
+	OtherParticipant *struct {
+		ID       string  `json:"id"`
+		Username string  `json:"username"`
+		PhotoURL *string `json:"photoUrl,omitempty"`
+	} `json:"otherParticipant,omitempty"`
 }
