@@ -10,7 +10,6 @@ import (
 
 // CreateMessage creates a new message in a conversation
 func (db *appdbimpl) CreateMessage(conversationID, senderID string, content *string, photoURL *string, replyToID *string) (*Message, error) {
-	// TODO: Implement message creation
 	// 1. Validate that sender is a participant in the conversation
 	isParticipant, err := db.IsUserInConversation(conversationID, senderID)
 	if err != nil {

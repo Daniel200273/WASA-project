@@ -12,7 +12,6 @@ import (
 
 // setMyUserName handles updating the current user's username
 func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// TODO: Implementation needed
 	// 1. Parse request body to get new username
 	var req UpdateUsernameRequest
 	if err := parseJSONRequest(r, &req); err != nil {

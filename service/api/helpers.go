@@ -9,11 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/Daniel200273/WASA-project/service/api/reqcontext"
-	"github.com/julienschmidt/httprouter"
 )
 
 // === VALIDATION HELPERS ===
@@ -85,22 +83,6 @@ func validateEmoticon(emoticon string) error {
 	return nil
 }
 
-// validateSearchQuery validates search query parameter
-func validateSearchQuery(query string) error {
-	if query == "" {
-		return fmt.Errorf("search query is required")
-	}
-	if len(query) > 50 {
-		return fmt.Errorf("search query must not exceed 50 characters")
-	}
-	// Pattern for search: alphanumeric, hyphens, underscores (allowing partial matches)
-	re := regexp.MustCompile("^[a-zA-Z0-9_-]*$")
-	if !re.MatchString(query) {
-		return fmt.Errorf("search query contains invalid characters")
-	}
-	return nil
-}
-
 // === HTTP HELPERS ===
 
 // parseJSONRequest parses JSON request body into the provided struct
@@ -117,23 +99,6 @@ func parseJSONRequest(r *http.Request, target interface{}) error {
 
 	if err := decoder.Decode(target); err != nil {
 		return fmt.Errorf("invalid JSON format: %w", err)
-	}
-
-	return nil
-}
-
-// parseMultipartRequest handles file uploads with multipart/form-data
-// Use this for photo upload endpoints
-func parseMultipartRequest(r *http.Request, maxMemory int64) error {
-	// Check Content-Type header for multipart endpoints
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.HasPrefix(contentType, "multipart/form-data") {
-		return fmt.Errorf("Content-Type must be multipart/form-data, got: %s", contentType)
-	}
-
-	// Parse multipart form with specified memory limit
-	if err := r.ParseMultipartForm(maxMemory); err != nil {
-		return fmt.Errorf("failed to parse multipart form: %w", err)
 	}
 
 	return nil
@@ -162,27 +127,9 @@ func sendErrorResponse(w http.ResponseWriter, statusCode int, message string, ct
 	}
 }
 
-// getPathParam extracts and validates a path parameter
-func getPathParam(ps httprouter.Params, paramName string) (string, error) {
-	value := ps.ByName(paramName)
-	if value == "" {
-		return "", fmt.Errorf("%s parameter is required", paramName)
-	}
-	return value, nil
-}
-
 // getQueryParam extracts a query parameter from URL
 func getQueryParam(r *http.Request, paramName string) string {
 	return r.URL.Query().Get(paramName)
-}
-
-// getRequiredQueryParam extracts and validates a required query parameter
-func getRequiredQueryParam(r *http.Request, paramName string) (string, error) {
-	value := r.URL.Query().Get(paramName)
-	if value == "" {
-		return "", fmt.Errorf("%s query parameter is required", paramName)
-	}
-	return value, nil
 }
 
 // === FILE UPLOAD HELPERS ===
@@ -303,53 +250,4 @@ func getUploadedFile(r *http.Request, fieldName string) (multipart.File, *multip
 	}
 
 	return file, header, nil
-}
-
-// === UTILITY FUNCTIONS ===
-
-// getUserFromContext extracts user information from request context
-// This should be set by the authentication middleware
-func getUserFromContext(ctx reqcontext.RequestContext) (userID string, err error) {
-	// TODO: This will be implemented once authentication middleware is ready
-	// For now, return a placeholder error
-	return "", fmt.Errorf("user context not implemented yet")
-}
-
-// containsString checks if a string slice contains a specific string
-func containsString(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
-// uniqueStrings removes duplicates from a string slice
-func uniqueStrings(slice []string) []string {
-	seen := make(map[string]bool)
-	result := []string{}
-
-	for _, item := range slice {
-		if !seen[item] {
-			seen[item] = true
-			result = append(result, item)
-		}
-	}
-
-	return result
-}
-
-// parseInt safely converts string to int with validation
-func parseInt(s string, fieldName string) (int, error) {
-	if s == "" {
-		return 0, fmt.Errorf("%s is required", fieldName)
-	}
-
-	value, err := strconv.Atoi(s)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be a valid integer", fieldName)
-	}
-
-	return value, nil
 }

@@ -68,7 +68,6 @@ func (db *appdbimpl) UpdateUserPhoto(userID, photoURL string) error {
 
 // SearchUsers searches for users by query string, excluding the specified user
 func (db *appdbimpl) SearchUsers(query string, excludeUserID string) ([]User, error) {
-	// TODO: Implement user search
 	// 1. Search users by username (case-insensitive LIKE query)
 	sqlQuery := `
 		SELECT id, username, photo_url, created_at
@@ -87,12 +86,12 @@ func (db *appdbimpl) SearchUsers(query string, excludeUserID string) ([]User, er
 		return nil, fmt.Errorf("error searching users: %w", err)
 	}
 	defer rows.Close()
+
 	// 4. Scan results using existing helper function
 	users, err := scanUsers(rows)
 	if err != nil {
 		return nil, fmt.Errorf("error scanning user results: %w", err)
 	}
-	// 4. Return list of matching users
 
 	return users, nil
 }
