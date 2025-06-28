@@ -101,7 +101,12 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 		return
 	}
 
-	// 6. Get all messages in conversation with sender info
+	// 6. Mark conversation as read when user opens it
+	if err := rt.db.MarkConversationAsRead(conversationID, userID); err != nil {
+		ctx.Logger.WithError(err).Warn("Failed to mark conversation as read") // Don't fail the request for this
+	}
+
+	// 7. Get all messages in conversation with sender info
 	messages, err := rt.db.GetConversationMessages(conversationID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to retrieve conversation messages")
@@ -109,7 +114,7 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 		return
 	}
 
-	// 7. Format response as JSON with conversation details and messages
+	// 8. Format response as JSON with conversation details and messages
 	response := ConversationDetailResponse{
 		ID:   conversationDetails.ID,
 		Type: conversationDetails.Type,

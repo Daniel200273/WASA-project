@@ -65,6 +65,7 @@ type AppDatabase interface {
 	GetConversationMessages(conversationID string) ([]Message, error)
 	DeleteMessage(messageID, userID string) error
 	ForwardMessage(messageID, targetConversationID, userID string) (*Message, error)
+	MarkConversationAsRead(conversationID, userID string) error
 
 	// === REACTIONS ===
 	CreateMessageReaction(messageID, userID, emoticon string) (*MessageReaction, error)
@@ -140,6 +141,7 @@ func (db *appdbimpl) initializeSchema() error {
 		conversation_id TEXT NOT NULL,
 		user_id TEXT NOT NULL,
 		joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (conversation_id, user_id),
 		FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

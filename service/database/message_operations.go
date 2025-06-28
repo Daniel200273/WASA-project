@@ -314,3 +314,29 @@ func (db *appdbimpl) getMessageReactions(messageID string) ([]MessageReaction, e
 
 	return reactions, nil
 }
+
+// === SIMPLE READ STATUS OPERATIONS ===
+
+// MarkConversationAsRead updates the last_read_at timestamp for a user in a conversation
+func (db *appdbimpl) MarkConversationAsRead(conversationID, userID string) error {
+	// Update the last_read_at timestamp for this user in this conversation
+	query := `
+		UPDATE conversation_participants 
+		SET last_read_at = CURRENT_TIMESTAMP 
+		WHERE conversation_id = ? AND user_id = ?
+	`
+	result, err := db.c.Exec(query, conversationID, userID)
+	if err != nil {
+		return fmt.Errorf("error marking conversation as read: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking update result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user is not a participant in this conversation")
+	}
+
+	return nil
+}

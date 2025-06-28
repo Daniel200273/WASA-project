@@ -126,10 +126,23 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 		}
 
 		// Get unread count for the conversation
-		// Note: This is just a placeholder. In a real implementation,
-		// you would add a field to track read status for messages
-		// and count unread messages here.
-		conv.UnreadCount = 0
+		// Count messages newer than the user's last_read_at timestamp
+		unreadQuery := `
+			SELECT COUNT(m.id)
+			FROM messages m
+			JOIN conversation_participants cp ON m.conversation_id = cp.conversation_id
+			WHERE m.conversation_id = ? 
+			AND cp.user_id = ?
+			AND m.sender_id != ?
+			AND m.created_at > cp.last_read_at
+		`
+		var unreadCount int
+		err = db.c.QueryRow(unreadQuery, conv.ID, userID, userID).Scan(&unreadCount)
+		if err != nil {
+			// If there's an error, default to 0
+			unreadCount = 0
+		}
+		conv.UnreadCount = unreadCount
 
 		conversations = append(conversations, conv)
 	}
@@ -188,6 +201,24 @@ func (db *appdbimpl) GetConversation(conversationID, userID string) (*Conversati
 		}
 	}
 
+	// Calculate unread count for this conversation
+	unreadQuery := `
+		SELECT COUNT(m.id)
+		FROM messages m
+		JOIN conversation_participants cp ON m.conversation_id = cp.conversation_id
+		WHERE m.conversation_id = ? 
+		AND cp.user_id = ?
+		AND m.sender_id != ?
+		AND m.created_at > cp.last_read_at
+	`
+	var unreadCount int
+	err = db.c.QueryRow(unreadQuery, conv.ID, userID, userID).Scan(&unreadCount)
+	if err != nil {
+		// If there's an error, default to 0
+		unreadCount = 0
+	}
+	conv.UnreadCount = unreadCount
+
 	return conv, nil
 }
 
@@ -238,8 +269,8 @@ func (db *appdbimpl) GetOrCreateDirectConversation(user1ID, user2ID string) (*Co
 
 	// 4. Add both users as participants
 	addParticipantQuery := `
-		INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
-		VALUES (?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_read_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 	_, err = tx.Exec(addParticipantQuery, conversationID, user1ID)
 	if err != nil {
