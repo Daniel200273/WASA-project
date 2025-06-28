@@ -50,6 +50,7 @@ type AppDatabase interface {
 	DeleteUserSession(token string) error
 
 	// === USER MANAGEMENT ===
+	GetUser(userID string) (*User, error)
 	UpdateUsername(userID, newUsername string) error
 	UpdateUserPhoto(userID, photoURL string) error
 	SearchUsers(query string, excludeUserID string) ([]User, error)

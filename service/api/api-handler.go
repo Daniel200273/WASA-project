@@ -15,6 +15,8 @@ func (rt *_router) Handler() http.Handler {
 	rt.router.POST("/session", rt.wrap(rt.doLogin, false)) // ❌ NO auth (è il login!)
 
 	// User Management endpoints
+	rt.router.GET("/users/me", rt.wrap(rt.getMyProfile, true))
+	rt.router.GET("/users/:userId", rt.wrap(rt.getUserProfile, true))
 	rt.router.PUT("/users/me/username", rt.wrap(rt.setMyUserName, true))
 	rt.router.PUT("/users/me/photo", rt.wrap(rt.setMyPhoto, true))
 	rt.router.GET("/users", rt.wrap(rt.searchUsers, true))

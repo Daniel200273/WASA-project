@@ -130,6 +130,54 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /users/me:
+    get:
+      tags: ["User Management"]
+      summary: Get current user's profile
+      description: Retrieve the authenticated user's profile information
+      operationId: getMyProfile
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /users/{userId}:
+    get:
+      tags: ["User Management"]
+      summary: Get user profile by ID
+      description: Retrieve a specific user's profile information
+      operationId: getUserProfile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /users/me/photo:
     put:
       tags: ["User Management"]

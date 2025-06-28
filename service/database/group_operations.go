@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -73,7 +74,7 @@ func (db *appdbimpl) AddUserToGroup(groupID, userID string) error {
 	err := db.c.QueryRow(`
 		SELECT type FROM conversations WHERE id = ?`, groupID).Scan(&conversationType)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("group not found")
 		}
 		return fmt.Errorf("error checking group existence: %w", err)
@@ -112,7 +113,7 @@ func (db *appdbimpl) RemoveUserFromGroup(groupID, userID string) error {
 	err := db.c.QueryRow(`
 		SELECT type FROM conversations WHERE id = ?`, groupID).Scan(&conversationType)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("group not found")
 		}
 		return fmt.Errorf("error checking group existence: %w", err)
@@ -158,7 +159,7 @@ func (db *appdbimpl) UpdateGroupName(groupID, name string) error {
 	err := db.c.QueryRow(`
 		SELECT type FROM conversations WHERE id = ?`, groupID).Scan(&conversationType)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("group not found")
 		}
 		return fmt.Errorf("error checking group existence: %w", err)
@@ -194,7 +195,7 @@ func (db *appdbimpl) UpdateGroupPhoto(groupID, photoURL string) error {
 	err := db.c.QueryRow(`
 		SELECT type FROM conversations WHERE id = ?`, groupID).Scan(&conversationType)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("group not found")
 		}
 		return fmt.Errorf("error checking group existence: %w", err)

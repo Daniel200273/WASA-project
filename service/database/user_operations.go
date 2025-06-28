@@ -95,3 +95,31 @@ func (db *appdbimpl) SearchUsers(query string, excludeUserID string) ([]User, er
 
 	return users, nil
 }
+
+// GetUser retrieves a user by their ID
+func (db *appdbimpl) GetUser(userID string) (*User, error) {
+	query := `
+		SELECT id, username, photo_url, created_at
+		FROM users 
+		WHERE id = ?
+	`
+
+	row := db.c.QueryRow(query, userID)
+
+	var user User
+	err := row.Scan(
+		&user.ID,
+		&user.Username,
+		&user.PhotoURL,
+		&user.CreatedAt,
+	)
+
+	if err != nil {
+		if isNotFoundError(err) {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("error retrieving user: %w", err)
+	}
+
+	return &user, nil
+}

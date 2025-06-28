@@ -203,3 +203,75 @@ func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps 
 
 	ctx.Logger.Info("Conversation created/retrieved successfully", "conversationID", conversation.ID)
 }
+
+// getMyProfile handles getting the current user's profile information
+func (rt *_router) getMyProfile(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	// Get current user ID from context (already authenticated by wrapper)
+	userID := ctx.UserID
+
+	// Retrieve user from database
+	user, err := rt.db.GetUser(userID)
+	if err != nil {
+		ctx.Logger.Error("Failed to get user profile", "error", err, "userID", userID)
+		sendErrorResponse(w, http.StatusNotFound, "User not found", ctx)
+		return
+	}
+
+	// Convert to response format
+	response := UserResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		PhotoURL: user.PhotoURL,
+	}
+
+	// Send response
+	if err := sendJSONResponse(w, http.StatusOK, response); err != nil {
+		ctx.Logger.WithError(err).Error("failed to send user profile response")
+		return
+	}
+
+	ctx.Logger.Info("User profile retrieved successfully", "userID", userID)
+}
+
+// getUserProfile handles getting a specific user's profile information by ID
+func (rt *_router) getUserProfile(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	// Get user ID from URL parameter
+	userID := ps.ByName("userId")
+	if userID == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
+		return
+	}
+
+	// Validate user ID format (basic validation)
+	if len(userID) < 6 || len(userID) > 64 {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid user ID format", ctx)
+		return
+	}
+
+	// Retrieve user from database
+	user, err := rt.db.GetUser(userID)
+	if err != nil {
+		if err.Error() == "user not found" {
+			sendErrorResponse(w, http.StatusNotFound, "User not found", ctx)
+			return
+		}
+		ctx.Logger.Error("Failed to get user profile", "error", err, "userID", userID)
+		sendErrorResponse(w, http.StatusInternalServerError, "Internal server error", ctx)
+		return
+	}
+
+	// Convert to response format
+	response := UserResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		PhotoURL: user.PhotoURL,
+	}
+
+	// Send response
+	if err := sendJSONResponse(w, http.StatusOK, response); err != nil {
+		ctx.Logger.WithError(err).Error("failed to send user profile response")
+		return
+	}
+
+	ctx.Logger.Info("User profile retrieved successfully", "requestedUserID", userID, "requestingUserID", ctx.UserID)
+}
