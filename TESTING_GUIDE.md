@@ -25,6 +25,69 @@ This guide contains instructions and curl commands for testing the WASAText mess
 
 ## Getting Started
 
+### Summary
+
+Backend (Go API Server)
+
+```bash
+# Build and start the API server
+cd /Users/daniel/Desktop/WASA-project
+go build ./cmd/webapi
+./webapi &
+SERVER_PID=$!
+
+# Quick health check
+curl -s http://localhost:3000/liveness
+```
+
+Frontend (Vue.js Developement)
+
+```bash
+# Start development server with hot reload
+cd /Users/daniel/Desktop/WASA-project/webui
+yarn dev
+# Runs on http://localhost:5173 (or similar)
+```
+
+Building Frontend (do before commit)
+
+```bash
+cd /Users/daniel/Desktop/WASA-project/webui
+
+# Development build
+yarn build-dev
+
+# Production build
+yarn build-prod
+
+# Preview production build
+yarn preview
+```
+
+Stopping Server
+
+```bash
+# Stop backend server (triggers cleanup)
+kill $SERVER_PID
+
+# Or if you don't have the PID
+pkill -SIGTERM webapi
+
+# Stop frontend dev server
+# Press Ctrl+C in the terminal running yarn dev
+```
+
+Quick Server Checks
+
+```bash
+# Check if servers are running
+lsof -i :3000  # Backend
+lsof -i :5173  # Frontend (or check yarn dev output for actual port)
+
+# Health check backend
+curl -s http://localhost:3000/liveness && echo "✅ Backend running" || echo "❌ Backend down"
+```
+
 ### Starting the Server
 
 Before running any API tests, you'll need to start the WASAText server:
@@ -58,8 +121,8 @@ ps aux | grep webapi
 # ✅ Quick health check (this endpoint is working)
 curl -s http://localhost:3000/liveness && echo "✅ Server is running" || echo "❌ Server is not running"
 
-# Kill any existing server if needed
-pkill webapi
+# Kill any existing server if needed (use graceful shutdown)
+pkill -SIGTERM webapi
 ```
 
 ### Database Initialization
@@ -76,18 +139,24 @@ ls -la *.db
 
 ### Ending Your Test Session
 
-When you're finished testing, make sure to properly shut down the server:
+When you're finished testing, make sure to properly shut down the server to trigger cleanup:
 
 ```bash
-# Kill the server process
+# ✅ Graceful shutdown (recommended - triggers tmp cleanup)
 kill $SERVER_PID
 
-# Or if you didn't save the PID:
-pkill webapi
+# Or if you didn't save the PID, use SIGTERM for graceful shutdown:
+pkill -SIGTERM webapi
 
 # Wait for the process to terminate
 wait $SERVER_PID 2>/dev/null
+
+# ❌ Avoid force kill (prevents cleanup):
+# kill -9 $SERVER_PID  # This prevents tmp directory cleanup
+# pkill -9 webapi      # This also prevents cleanup
 ```
+
+**Important**: Use graceful shutdown (`kill` or `pkill -SIGTERM`) to ensure the `tmp/uploads` directory is properly cleaned up. Force killing the process (`kill -9` or `pkill -9`) will leave temporary files behind.
 
 ## Understanding curl Flags
 

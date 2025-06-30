@@ -10,25 +10,35 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// setMyUserName handles updating the current user's username
+// setMyUserName handles updating a user's username
 func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// 1. Parse request body to get new username
+	// 1. Get user ID from URL parameter
+	userID := ps.ByName("userId")
+	if userID == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
+		return
+	}
+
+	// 2. Authorization check - user can only update their own username
+	if userID != ctx.UserID {
+		sendErrorResponse(w, http.StatusForbidden, "You can only update your own username", ctx)
+		return
+	}
+
+	// 3. Parse request body to get new username
 	var req UpdateUsernameRequest
 	if err := parseJSONRequest(r, &req); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", ctx)
 		return
 	}
 
-	// 2. Validate username format (reuse validateUsername)
+	// 4. Validate username format (reuse validateUsername)
 	if err := validateUsername(req.Name); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid username format", ctx)
 		return
 	}
 
-	// 3. Get current user from context/token (already authenticated by wrapper)
-	userID := ctx.UserID
-
-	// 4. Check if new username is already taken
+	// 5. Check if new username is already taken
 	_, err := rt.db.GetUserByUsername(req.Name)
 	if err != nil && err.Error() != "user not found" {
 		ctx.Logger.Error("Failed to check existing username", "error", err)
@@ -36,24 +46,34 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 		return
 	}
 
-	// 5. Update username in database
+	// 6. Update username in database
 	if err := rt.db.UpdateUsername(userID, req.Name); err != nil {
 		ctx.Logger.Error("Failed to update username", "error", err)
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to update username", ctx)
 		return
 	}
-	// 6. Return success response
+
+	// 7. Return success response
 	w.WriteHeader(http.StatusNoContent) // 204 No Content
 	ctx.Logger.Info("Username updated successfully", "userID", userID, "newUsername", req.Name)
-
 }
 
-// setMyPhoto handles updating the current user's profile photo
+// setMyPhoto handles updating a user's profile photo
 func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// 1. Get current user from context/token (already authenticated by wrapper)
-	userID := ctx.UserID
+	// 1. Get user ID from URL parameter
+	userID := ps.ByName("userId")
+	if userID == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
+		return
+	}
 
-	// 2. Get and validate uploaded file
+	// 2. Authorization check - user can only update their own photo
+	if userID != ctx.UserID {
+		sendErrorResponse(w, http.StatusForbidden, "You can only update your own photo", ctx)
+		return
+	}
+
+	// 3. Get and validate uploaded file
 	file, header, err := getUploadedFile(r, "photo")
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
@@ -61,14 +81,14 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 	}
 	defer file.Close()
 
-	// 3. Generate filename (use userID to ensure uniqueness)
+	// 4. Generate filename (use userID to ensure uniqueness)
 	fileExt := strings.ToLower(filepath.Ext(header.Filename))
 	if fileExt == "" {
 		fileExt = ".jpg" // default extension
 	}
 	filename := fmt.Sprintf("%s%s", userID, fileExt)
 
-	// 4. Save photo file to temporary storage
+	// 5. Save photo file to temporary storage
 	photoURL, err := saveUploadedImage(file, "profiles", filename)
 	if err != nil {
 		ctx.Logger.Error("Failed to save profile photo", "error", err, "userID", userID)
@@ -76,14 +96,14 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 		return
 	}
 
-	// 5. Update user's photo_url in database
+	// 6. Update user's photo_url in database
 	if err := rt.db.UpdateUserPhoto(userID, photoURL); err != nil {
 		ctx.Logger.Error("Failed to update user photo in database", "error", err, "userID", userID)
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to update photo", ctx)
 		return
 	}
 
-	// 6. Return success response
+	// 7. Return success response
 	w.WriteHeader(http.StatusNoContent)
 	ctx.Logger.Info("Profile photo updated successfully", "userID", userID, "photoURL", photoURL)
 }
@@ -134,35 +154,6 @@ func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httpro
 	}
 
 	ctx.Logger.Info("User search completed", "query", query, "resultsCount", len(users))
-}
-
-// getMyProfile handles getting the current user's profile information
-func (rt *_router) getMyProfile(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// Get current user ID from context (already authenticated by wrapper)
-	userID := ctx.UserID
-
-	// Retrieve user from database
-	user, err := rt.db.GetUser(userID)
-	if err != nil {
-		ctx.Logger.Error("Failed to get user profile", "error", err, "userID", userID)
-		sendErrorResponse(w, http.StatusNotFound, "User not found", ctx)
-		return
-	}
-
-	// Convert to response format
-	response := UserResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		PhotoURL: user.PhotoURL,
-	}
-
-	// Send response
-	if err := sendJSONResponse(w, http.StatusOK, response); err != nil {
-		ctx.Logger.WithError(err).Error("failed to send user profile response")
-		return
-	}
-
-	ctx.Logger.Info("User profile retrieved successfully", "userID", userID)
 }
 
 // getUserProfile handles getting a specific user's profile information by ID

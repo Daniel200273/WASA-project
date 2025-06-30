@@ -82,12 +82,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /users/me/username:
+  /users/{userId}/username:
     put:
       tags: ["User Management"]
-      summary: Update current user's username
-      description: Updates the current user's username if the new name is not already taken
+      summary: Update user's username
+      description: Updates the specified user's username if the new name is not already taken
       operationId: setMyUserName
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
       requestBody:
         required: true
         content:
@@ -129,22 +139,8 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
-
-  /users/me:
-    get:
-      tags: ["User Management"]
-      summary: Get current user's profile
-      description: Retrieve the authenticated user's profile information
-      operationId: getMyProfile
-      responses:
-        '200':
-          description: User profile retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
   /users/{userId}:
     get:
@@ -178,12 +174,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /users/me/photo:
+  /users/{userId}/photo:
     put:
       tags: ["User Management"]
-      summary: Update current user's profile photo
-      description: Upload and set a new profile photo for the authenticated user
+      summary: Update user's profile photo
+      description: Upload and set a new profile photo for the specified user
       operationId: setMyPhoto
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
       requestBody:
         required: true
         content:
@@ -218,6 +224,8 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
   /users:
     get:
@@ -262,12 +270,21 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /conversations:
+  /users/{userId}/conversations:
     get:
       tags: ["Conversations"]
       summary: Get user's conversations
-      description: Get all conversations for the current user, sorted by latest message timestamp
+      description: Get all conversations for the specified user
       operationId: getMyConversations
+      parameters:
+        - name: userId
+          in: path
+          description: ID of the user whose conversations to retrieve
+          required: true
+          schema:
+            type: string
+            minLength: 6
+            maxLength: 64
       responses:
         '200':
           description: List of conversations
@@ -299,14 +316,69 @@ paths:
                     unreadCount: 2
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /conversations/{conversationId}:
+    post:
+      tags: ["Conversations"]
+      summary: Start a new conversation
+      description: Create or get a direct conversation with another user
+      operationId: startConversation
+      parameters:
+        - name: userId
+          in: path
+          description: ID of the user starting the conversation
+          required: true
+          schema:
+            type: string
+            minLength: 6
+            maxLength: 64
+      requestBody:
+        description: Target user to start conversation with
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: ID of the user to start conversation with
+                  minLength: 6
+                  maxLength: 64
+              required:
+                - userId
+            example:
+              userId: "user456"
+      responses:
+        '201':
+          description: Conversation created or retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Target user not found
+
+  /users/{userId}/conversations/{conversationId}:
     get:
       tags: ["Conversations"]
       summary: Get conversation messages
-      description: Get all messages in a specific conversation
+      description: Get all messages in a specific conversation for the specified user
       operationId: getConversation
       parameters:
+        - name: userId
+          in: path
+          description: ID of the user accessing the conversation
+          required: true
+          schema:
+            type: string
+            minLength: 6
+            maxLength: 64
         - name: conversationId
           in: path
           required: true
@@ -360,13 +432,22 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /conversations/{conversationId}/messages:
+  /users/{userId}/conversations/{conversationId}/messages:
     post:
       tags: ["Messages"]
       summary: Send a message
-      description: Send a new message to a conversation
+      description: Send a new message to a conversation for the specified user
       operationId: sendMessage
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier sending the message
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: conversationId
           in: path
           required: true
@@ -446,14 +527,25 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /messages/{messageId}/forward:
+  /users/{userId}/messages/{messageId}/forward:
     post:
       tags: ["Messages"]
       summary: Forward a message
-      description: Forward an existing message to another conversation
+      description: Forward an existing message to another conversation for the specified user
       operationId: forwardMessage
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier forwarding the message
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: messageId
           in: path
           required: true
@@ -503,14 +595,25 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /messages/{messageId}:
+  /users/{userId}/messages/{messageId}:
     delete:
       tags: ["Messages"]
       summary: Delete a message
-      description: Delete a message sent by the current user
+      description: Delete a message sent by the specified user
       operationId: deleteMessage
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: messageId
           in: path
           required: true
@@ -538,13 +641,22 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /messages/{messageId}/comments:
+  /users/{userId}/messages/{messageId}/comments:
     post:
       tags: ["Messages"]
       summary: Comment on a message
-      description: Add a reaction/comment to a message with an emoticon
+      description: Add a reaction/comment to a message with an emoticon for the specified user
       operationId: commentMessage
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: messageId
           in: path
           required: true
@@ -592,14 +704,25 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /messages/{messageId}/comments/{commentId}:
+  /users/{userId}/messages/{messageId}/comments/{commentId}:
     delete:
       tags: ["Messages"]
       summary: Remove comment from message
-      description: Remove a reaction/comment from a message
+      description: Remove a reaction/comment from a message for the specified user
       operationId: uncommentMessage
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: messageId
           in: path
           required: true
@@ -636,12 +759,22 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /groups:
+  /users/{userId}/groups:
     post:
       tags: ["Groups"]
       summary: Create a new group
-      description: Create a new group conversation with specified users
+      description: Create a new group conversation with specified users for the requesting user
       operationId: createGroup
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier creating the group
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
       requestBody:
         required: true
         content:
@@ -703,14 +836,25 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /groups/{groupId}/members:
+  /users/{userId}/groups/{groupId}/members:
     post:
       tags: ["Groups"]
       summary: Add user to group
-      description: Add a user to an existing group
+      description: Add a user to an existing group for the requesting user
       operationId: addToGroup
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier making the request
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: groupId
           in: path
           required: true
@@ -760,14 +904,25 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /groups/{groupId}/members/me:
+  /users/{userId}/groups/{groupId}/members/{memberId}:
     delete:
       tags: ["Groups"]
-      summary: Leave group
-      description: Remove current user from a group
+      summary: Leave group or remove member
+      description: Remove a user from a group (self or others if authorized)
       operationId: leaveGroup
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier making the request
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: groupId
           in: path
           required: true
@@ -777,6 +932,15 @@ paths:
             maxLength: 36
             pattern: '^[a-zA-Z0-9_-]+$'
           description: Group identifier
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
+          description: ID of the member to remove from the group
       responses:
         '204':
           description: Left group successfully
@@ -788,14 +952,25 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /groups/{groupId}/name:
+  /users/{userId}/groups/{groupId}/name:
     put:
       tags: ["Groups"]
       summary: Update group name
-      description: Update the name of a group
+      description: Update the name of a group for the requesting user
       operationId: setGroupName
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier making the request
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: groupId
           in: path
           required: true
@@ -846,13 +1021,22 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /groups/{groupId}/photo:
+  /users/{userId}/groups/{groupId}/photo:
     put:
       tags: ["Groups"]
       summary: Update group photo
-      description: Update the photo of a group
+      description: Update the photo of a group for the requesting user
       operationId: setGroupPhoto
       parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User identifier making the request
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            minLength: 6
+            maxLength: 64
         - name: groupId
           in: path
           required: true
@@ -913,6 +1097,13 @@ components:
   responses:
     UnauthorizedError:
       description: Authentication information is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ForbiddenError:
+      description: Access forbidden - insufficient permissions
       content:
         application/json:
           schema:

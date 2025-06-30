@@ -9,25 +9,35 @@ import (
 
 // startConversation creates or gets a direct conversation with another user
 func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// 1. Parse request body to get target user ID
+	// 1. Get user ID from URL parameter and validate authorization
+	userID := ps.ByName("userId")
+	if userID == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
+		return
+	}
+
+	// Authorization check - user can only create conversations for themselves
+	if userID != ctx.UserID {
+		sendErrorResponse(w, http.StatusForbidden, "You can only create conversations for yourself", ctx)
+		return
+	}
+
+	// 2. Parse request body to get target user ID
 	var req StartConversationRequest
 	if err := parseJSONRequest(r, &req); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", ctx)
 		return
 	}
 
-	// 2. Validate target user ID format
+	// 3. Validate target user ID format
 	if err := validateID(req.UserID, "userId"); err != nil {
 		ctx.Logger.Error("Invalid user ID", "error", err)
 		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
 		return
 	}
 
-	// 3. Get current user from context/token
-	currentUserID := ctx.UserID
-
 	// 4. Validate that user is not trying to start conversation with themselves
-	if currentUserID == req.UserID {
+	if userID == req.UserID {
 		sendErrorResponse(w, http.StatusBadRequest, "Cannot start conversation with yourself", ctx)
 		return
 	}
@@ -41,7 +51,7 @@ func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps 
 	}
 
 	// 6. Get or create direct conversation using existing database method
-	conversation, err := rt.db.GetOrCreateDirectConversation(currentUserID, req.UserID)
+	conversation, err := rt.db.GetOrCreateDirectConversation(userID, req.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to create conversation")
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to create conversation", ctx)
@@ -81,8 +91,18 @@ func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps 
 
 // getMyConversations handles getting all conversations for the current user
 func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// 1. Get current user from context/token (already authenticated by wrapper)
-	userID := ctx.UserID
+	// 1. Get user ID from URL parameter and validate authorization
+	userID := ps.ByName("userId")
+	if userID == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
+		return
+	}
+
+	// Authorization check - user can only get their own conversations
+	if userID != ctx.UserID {
+		sendErrorResponse(w, http.StatusForbidden, "You can only access your own conversations", ctx)
+		return
+	}
 
 	// 2. Retrieve all conversations for the user from database
 	dbConversations, err := rt.db.GetUserConversations(userID)
@@ -141,18 +161,28 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 
 // getConversation handles getting messages in a specific conversation
 func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// 1. Get conversationId from URL path parameters
+	// 1. Get user ID from URL parameter and validate authorization
+	userID := ps.ByName("userId")
+	if userID == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
+		return
+	}
+
+	// Authorization check - user can only access their own conversations
+	if userID != ctx.UserID {
+		sendErrorResponse(w, http.StatusForbidden, "You can only access your own conversations", ctx)
+		return
+	}
+
+	// 2. Get conversationId from URL path parameters
 	conversationID := ps.ByName("conversationId")
 
-	// 2. Validate conversationId format
+	// 3. Validate conversationId format
 	if err := validateID(conversationID, "conversationId"); err != nil {
 		ctx.Logger.Error("Invalid conversation ID", "error", err)
 		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
 		return
 	}
-
-	// 3. Get current user from context/token
-	userID := ctx.UserID
 
 	// 4. Check if user is participant in the conversation
 	if val, err := rt.db.IsUserInConversation(conversationID, userID); !val && err == nil {
