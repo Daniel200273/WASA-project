@@ -49,6 +49,11 @@ type UpdateGroupNameRequest struct {
 	Name string `json:"name"`
 }
 
+// StartConversationRequest represents starting a conversation request
+type StartConversationRequest struct {
+	UserID string `json:"userId"`
+}
+
 // === RESPONSE STRUCTURES ===
 
 // LoginResponse represents the login response body

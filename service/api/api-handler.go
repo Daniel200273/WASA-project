@@ -16,13 +16,13 @@ func (rt *_router) Handler() http.Handler {
 
 	// User Management endpoints
 	rt.router.GET("/users/me", rt.wrap(rt.getMyProfile, true))
-	rt.router.GET("/users/:userId", rt.wrap(rt.getUserProfile, true))
 	rt.router.PUT("/users/me/username", rt.wrap(rt.setMyUserName, true))
 	rt.router.PUT("/users/me/photo", rt.wrap(rt.setMyPhoto, true))
 	rt.router.GET("/users", rt.wrap(rt.searchUsers, true))
-	rt.router.POST("/users/:userId/conversations", rt.wrap(rt.startConversation, true))
+	rt.router.GET("/users/:userId", rt.wrap(rt.getUserProfile, true))
 
 	// Conversations endpoints
+	rt.router.POST("/conversations", rt.wrap(rt.startConversation, true))
 	rt.router.GET("/conversations", rt.wrap(rt.getMyConversations, true))
 	rt.router.GET("/conversations/:conversationId", rt.wrap(rt.getConversation, true))
 

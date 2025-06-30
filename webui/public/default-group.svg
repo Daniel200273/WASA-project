@@ -1,0 +1,8 @@
+<!-- Default Group SVG -->
+<svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="25" cy="25" r="25" fill="#007bff"/>
+  <circle cx="18" cy="18" r="6" fill="white"/>
+  <circle cx="32" cy="18" r="6" fill="white"/>
+  <path d="M6 38c0-6.627 5.373-12 12-12h4c6.627 0 12 5.373 12 12" fill="white"/>
+  <path d="M16 38c0-6.627 5.373-12 12-12h4c6.627 0 12 5.373 12 12" fill="white"/>
+</svg>

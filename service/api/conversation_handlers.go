@@ -7,6 +7,78 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// startConversation creates or gets a direct conversation with another user
+func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	// 1. Parse request body to get target user ID
+	var req StartConversationRequest
+	if err := parseJSONRequest(r, &req); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid request body", ctx)
+		return
+	}
+
+	// 2. Validate target user ID format
+	if err := validateID(req.UserID, "userId"); err != nil {
+		ctx.Logger.Error("Invalid user ID", "error", err)
+		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
+		return
+	}
+
+	// 3. Get current user from context/token
+	currentUserID := ctx.UserID
+
+	// 4. Validate that user is not trying to start conversation with themselves
+	if currentUserID == req.UserID {
+		sendErrorResponse(w, http.StatusBadRequest, "Cannot start conversation with yourself", ctx)
+		return
+	}
+
+	// 5. Check if target user exists
+	_, err := rt.db.GetUserByID(req.UserID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Target user not found")
+		sendErrorResponse(w, http.StatusNotFound, "User not found", ctx)
+		return
+	}
+
+	// 6. Get or create direct conversation using existing database method
+	conversation, err := rt.db.GetOrCreateDirectConversation(currentUserID, req.UserID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to create conversation")
+		sendErrorResponse(w, http.StatusInternalServerError, "Failed to create conversation", ctx)
+		return
+	}
+
+	// 7. Return conversation details
+	response := ConversationDetailResponse{
+		ID:       conversation.ID,
+		Type:     conversation.Type,
+		Members:  make([]UserResponse, len(conversation.Participants)),
+		Messages: []MessageResponse{}, // Empty for new conversations
+	}
+
+	// Set conversation name to other participant's name
+	if conversation.OtherParticipant != nil {
+		response.Name = conversation.OtherParticipant.Username
+	} else {
+		response.Name = "Conversation"
+	}
+
+	// Convert participants to response format
+	for i, participant := range conversation.Participants {
+		response.Members[i] = UserResponse{
+			ID:       participant.ID,
+			Username: participant.Username,
+			PhotoURL: participant.PhotoURL,
+		}
+	}
+
+	if err := sendJSONResponse(w, http.StatusCreated, response); err != nil {
+		ctx.Logger.WithError(err).Error("failed to send conversation response")
+	}
+
+	ctx.Logger.Info("Conversation created/retrieved successfully", "conversationID", conversation.ID)
+}
+
 // getMyConversations handles getting all conversations for the current user
 func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	// 1. Get current user from context/token (already authenticated by wrapper)
