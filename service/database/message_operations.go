@@ -52,7 +52,7 @@ func (db *appdbimpl) CreateMessage(conversationID, senderID string, content *str
 	_, err = tx.Exec(messageQuery, messageID, conversationID, senderID, content, photoURL, replyToID)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("error creating message: %w (rollback failed: %v)", err, rollbackErr)
+			return nil, fmt.Errorf("error creating message: %w (rollback failed: %w)", err, rollbackErr)
 		}
 		return nil, fmt.Errorf("error creating message: %w", err)
 	}
@@ -66,7 +66,7 @@ func (db *appdbimpl) CreateMessage(conversationID, senderID string, content *str
 	_, err = tx.Exec(updateQuery, conversationID)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("error updating conversation last_message_at: %w (rollback failed: %v)", err, rollbackErr)
+			return nil, fmt.Errorf("error updating conversation last_message_at: %w (rollback failed: %w)", err, rollbackErr)
 		}
 		return nil, fmt.Errorf("error updating conversation last_message_at: %w", err)
 	}
@@ -200,7 +200,7 @@ func (db *appdbimpl) ForwardMessage(messageID, targetConversationID, userID stri
 		originalMessage.Content, originalMessage.PhotoURL)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("error creating forwarded message: %w (rollback failed: %v)", err, rollbackErr)
+			return nil, fmt.Errorf("error creating forwarded message: %w (rollback failed: %w)", err, rollbackErr)
 		}
 		return nil, fmt.Errorf("error creating forwarded message: %w", err)
 	}
@@ -214,7 +214,7 @@ func (db *appdbimpl) ForwardMessage(messageID, targetConversationID, userID stri
 	_, err = tx.Exec(updateQuery, targetConversationID)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("error updating conversation last_message_at: %w (rollback failed: %v)", err, rollbackErr)
+			return nil, fmt.Errorf("error updating conversation last_message_at: %w (rollback failed: %w)", err, rollbackErr)
 		}
 		return nil, fmt.Errorf("error updating conversation last_message_at: %w", err)
 	}

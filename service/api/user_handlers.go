@@ -20,7 +20,8 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 	}
 
 	// 2. Authorization check - user can only update their own username
-	if userID != ctx.UserID {
+	// Allow both: real userID or session token as userID parameter
+	if userID != ctx.UserID && userID != ctx.Token {
 		sendErrorResponse(w, http.StatusForbidden, "You can only update your own username", ctx)
 		return
 	}
@@ -47,15 +48,15 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 	}
 
 	// 6. Update username in database
-	if err := rt.db.UpdateUsername(userID, req.Name); err != nil {
-		ctx.Logger.Error("Failed to update username", "error", err)
+	if err := rt.db.UpdateUsername(ctx.UserID, req.Name); err != nil {
+		ctx.Logger.Error("Failed to update username", "error", err, "ctxUserID", ctx.UserID)
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to update username", ctx)
 		return
 	}
 
 	// 7. Return success response
 	w.WriteHeader(http.StatusNoContent) // 204 No Content
-	ctx.Logger.Info("Username updated successfully", "userID", userID, "newUsername", req.Name)
+	ctx.Logger.Info("Username updated successfully", "userID", ctx.UserID, "newUsername", req.Name)
 }
 
 // setMyPhoto handles updating a user's profile photo
@@ -68,7 +69,8 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 	}
 
 	// 2. Authorization check - user can only update their own photo
-	if userID != ctx.UserID {
+	// Allow both: real userID or session token as userID parameter
+	if userID != ctx.UserID && userID != ctx.Token {
 		sendErrorResponse(w, http.StatusForbidden, "You can only update your own photo", ctx)
 		return
 	}
@@ -86,26 +88,26 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 	if fileExt == "" {
 		fileExt = ".jpg" // default extension
 	}
-	filename := fmt.Sprintf("%s%s", userID, fileExt)
+	filename := fmt.Sprintf("%s%s", ctx.UserID, fileExt)
 
 	// 5. Save photo file to temporary storage
 	photoURL, err := saveUploadedImage(file, "profiles", filename)
 	if err != nil {
-		ctx.Logger.Error("Failed to save profile photo", "error", err, "userID", userID)
+		ctx.Logger.Error("Failed to save profile photo", "error", err, "userID", ctx.UserID)
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to save photo", ctx)
 		return
 	}
 
 	// 6. Update user's photo_url in database
-	if err := rt.db.UpdateUserPhoto(userID, photoURL); err != nil {
-		ctx.Logger.Error("Failed to update user photo in database", "error", err, "userID", userID)
+	if err := rt.db.UpdateUserPhoto(ctx.UserID, photoURL); err != nil {
+		ctx.Logger.Error("Failed to update user photo in database", "error", err, "userID", ctx.UserID)
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to update photo", ctx)
 		return
 	}
 
 	// 7. Return success response
 	w.WriteHeader(http.StatusNoContent)
-	ctx.Logger.Info("Profile photo updated successfully", "userID", userID, "photoURL", photoURL)
+	ctx.Logger.Info("Profile photo updated successfully", "userID", ctx.UserID, "photoURL", photoURL)
 }
 
 // searchUsers handles searching for users by username
@@ -156,23 +158,23 @@ func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httpro
 	ctx.Logger.Info("User search completed", "query", query, "resultsCount", len(users))
 }
 
-// getUserProfile handles getting a specific user's profile information by ID
+// getUserProfile handles getting a specific user's profile information by token
 func (rt *_router) getUserProfile(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// Get user ID from URL parameter
+	// Get token from URL parameter
 	userID := ps.ByName("userId")
 	if userID == "" {
-		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
+		sendErrorResponse(w, http.StatusBadRequest, "Token is required", ctx)
 		return
 	}
 
-	// Validate user ID format (basic validation)
+	// Validate token format (basic validation)
 	if len(userID) < 6 || len(userID) > 64 {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid user ID format", ctx)
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid token format", ctx)
 		return
 	}
 
-	// Retrieve user from database
-	user, err := rt.db.GetUser(userID)
+	// Retrieve user from database using token
+	user, err := rt.db.GetUserByToken(userID)
 	if err != nil {
 		if err.Error() == "user not found" {
 			sendErrorResponse(w, http.StatusNotFound, "User not found", ctx)

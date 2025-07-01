@@ -4,9 +4,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/gofrs/uuid"
+)
+
+// Constants for conversation types
+const (
+	ConversationTypeGroup = "group"
 )
 
 // === GROUP OPERATIONS ===
@@ -18,7 +24,12 @@ func (db *appdbimpl) CreateGroup(name, createdBy string, memberIDs []string) (*C
 	if err != nil {
 		return nil, fmt.Errorf("error starting transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			// Log rollback error but don't return it as it's in defer
+			log.Printf("Failed to rollback transaction: %v", err)
+		}
+	}()
 
 	// 1. Generate group conversation ID
 	groupID := uuid.Must(uuid.NewV4()).String()
@@ -80,7 +91,7 @@ func (db *appdbimpl) AddUserToGroup(groupID, userID string) error {
 		return fmt.Errorf("error checking group existence: %w", err)
 	}
 
-	if conversationType != "group" {
+	if conversationType != ConversationTypeGroup {
 		return fmt.Errorf("conversation is not a group")
 	}
 
@@ -119,7 +130,7 @@ func (db *appdbimpl) RemoveUserFromGroup(groupID, userID string) error {
 		return fmt.Errorf("error checking group existence: %w", err)
 	}
 
-	if conversationType != "group" {
+	if conversationType != ConversationTypeGroup {
 		return fmt.Errorf("conversation is not a group")
 	}
 
@@ -165,7 +176,7 @@ func (db *appdbimpl) UpdateGroupName(groupID, name string) error {
 		return fmt.Errorf("error checking group existence: %w", err)
 	}
 
-	if conversationType != "group" {
+	if conversationType != ConversationTypeGroup {
 		return fmt.Errorf("conversation is not a group")
 	}
 
@@ -201,7 +212,7 @@ func (db *appdbimpl) UpdateGroupPhoto(groupID, photoURL string) error {
 		return fmt.Errorf("error checking group existence: %w", err)
 	}
 
-	if conversationType != "group" {
+	if conversationType != ConversationTypeGroup {
 		return fmt.Errorf("conversation is not a group")
 	}
 

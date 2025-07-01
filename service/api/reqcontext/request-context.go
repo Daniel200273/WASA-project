@@ -21,4 +21,7 @@ type RequestContext struct {
 
 	// UserID is the authenticated user identifier (empty if not authenticated)
 	UserID string
+
+	// Token is the authentication token used for this request
+	Token string
 }

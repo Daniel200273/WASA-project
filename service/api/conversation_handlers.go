@@ -7,6 +7,11 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// Constants for conversation types
+const (
+	ConversationTypeDefault = "Conversation"
+)
+
 // startConversation creates or gets a direct conversation with another user
 func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	// 1. Get user ID from URL parameter and validate authorization
@@ -37,7 +42,7 @@ func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps 
 	}
 
 	// 4. Validate that user is not trying to start conversation with themselves
-	if userID == req.UserID {
+	if ctx.UserID == req.UserID {
 		sendErrorResponse(w, http.StatusBadRequest, "Cannot start conversation with yourself", ctx)
 		return
 	}
@@ -51,7 +56,7 @@ func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps 
 	}
 
 	// 6. Get or create direct conversation using existing database method
-	conversation, err := rt.db.GetOrCreateDirectConversation(userID, req.UserID)
+	conversation, err := rt.db.GetOrCreateDirectConversation(ctx.UserID, req.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to create conversation")
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to create conversation", ctx)
@@ -70,7 +75,7 @@ func (rt *_router) startConversation(w http.ResponseWriter, r *http.Request, ps 
 	if conversation.OtherParticipant != nil {
 		response.Name = conversation.OtherParticipant.Username
 	} else {
-		response.Name = "Conversation"
+		response.Name = ConversationTypeDefault
 	}
 
 	// Convert participants to response format
@@ -105,7 +110,7 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 	}
 
 	// 2. Retrieve all conversations for the user from database
-	dbConversations, err := rt.db.GetUserConversations(userID)
+	dbConversations, err := rt.db.GetUserConversations(ctx.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("failed to retrieve user conversations")
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve conversations", ctx)
@@ -126,12 +131,13 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 		}
 
 		// Handle name - check if direct conversation and use other participant's name if available
-		if dbConv.Type == "direct" && dbConv.OtherParticipant != nil {
+		switch {
+		case dbConv.Type == "direct" && dbConv.OtherParticipant != nil:
 			convResp.Name = dbConv.OtherParticipant.Username
-		} else if dbConv.Name != nil {
+		case dbConv.Name != nil:
 			convResp.Name = *dbConv.Name
-		} else {
-			convResp.Name = "Conversation" // Fallback name
+		default:
+			convResp.Name = ConversationTypeDefault // Fallback name
 		}
 
 		// Handle photo URL
@@ -185,8 +191,8 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	}
 
 	// 4. Check if user is participant in the conversation
-	if val, err := rt.db.IsUserInConversation(conversationID, userID); !val && err == nil {
-		ctx.Logger.Error("User not authorized to access conversation", "userID", userID, "conversationID", conversationID)
+	if val, err := rt.db.IsUserInConversation(conversationID, ctx.UserID); !val && err == nil {
+		ctx.Logger.Error("User not authorized to access conversation", "userID", ctx.UserID, "conversationID", conversationID)
 		sendErrorResponse(w, http.StatusForbidden, "Unauthorized access to conversation", ctx)
 		return
 	} else if err != nil {
@@ -196,7 +202,7 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	}
 
 	// 5. Get conversation details (type, name, photo, members)
-	conversationDetails, err := rt.db.GetConversation(conversationID, userID)
+	conversationDetails, err := rt.db.GetConversation(conversationID, ctx.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to retrieve conversation details")
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve conversation details", ctx)
@@ -204,7 +210,7 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	}
 
 	// 6. Mark conversation as read when user opens it
-	if err := rt.db.MarkConversationAsRead(conversationID, userID); err != nil {
+	if err := rt.db.MarkConversationAsRead(conversationID, ctx.UserID); err != nil {
 		ctx.Logger.WithError(err).Warn("Failed to mark conversation as read") // Don't fail the request for this
 	}
 
@@ -223,12 +229,13 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	}
 
 	// Handle conversation name - for direct conversations, use other participant's name
-	if conversationDetails.Type == "direct" && conversationDetails.OtherParticipant != nil {
+	switch {
+	case conversationDetails.Type == "direct" && conversationDetails.OtherParticipant != nil:
 		response.Name = conversationDetails.OtherParticipant.Username
-	} else if conversationDetails.Name != nil {
+	case conversationDetails.Name != nil:
 		response.Name = *conversationDetails.Name
-	} else {
-		response.Name = "Conversation" // Fallback name
+	default:
+		response.Name = ConversationTypeDefault // Fallback name
 	}
 
 	// Handle photo URL

@@ -11,31 +11,31 @@ import (
 isAuthorized checks if the user is authorized to perform the action, by checking the Authorization header.
 The auth token must be in the format "Bearer <sessionToken>" where sessionToken is the string token
 returned from the login endpoint (/session).
-If the user is authorized, the function returns the userID, otherwise it returns an empty string.
+If the user is authorized, the function returns the userID and token, otherwise it returns empty strings.
 */
-func isAuthorized(header http.Header, db database.AppDatabase) string {
+func isAuthorized(header http.Header, db database.AppDatabase) (string, string) {
 	authHeader := header.Get("Authorization")
 	if authHeader == "" {
-		return ""
+		return "", ""
 	}
 
 	// Check if the header starts with "Bearer "
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		return ""
+		return "", ""
 	}
 
 	// Extract the token part after "Bearer "
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 	if token == "" {
-		return ""
+		return "", ""
 	}
 
 	// Look up the user by session token
 	user, err := db.GetUserByToken(token)
 	if err != nil {
 		// Token is invalid or expired
-		return ""
+		return "", ""
 	}
 
-	return user.ID
+	return user.ID, token
 }

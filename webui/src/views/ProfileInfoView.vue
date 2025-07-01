@@ -157,7 +157,8 @@ export default {
 
     async loadGroup() {
         try {
-            const response = await this.$axios.get(`/groups/${this.id}`);
+            // Use the user-centric API pattern that exists in the backend
+            const response = await this.$axios.get(`/users/${this.currentUser.token}/conversations/${this.id}`);
             this.groupData = response.data;
         }
         catch (error) {
@@ -229,7 +230,7 @@ export default {
       const username = prompt('Enter username to add:');
       if (username && username.trim()) {
         try {
-          await this.$axios.post(`/groups/${this.id}/members`, { 
+          await this.$axios.post(`/users/${this.currentUser.token}/groups/${this.id}/members`, { 
             username: username.trim() 
           });
           
@@ -246,7 +247,7 @@ export default {
     async leaveGroup() {
       if (confirm('Are you sure you want to leave this group?')) {
         try {
-          await this.$axios.delete(`/groups/${this.id}/members/me`);
+          await this.$axios.delete(`/users/${this.currentUser.token}/groups/${this.id}/members`);
           
           // Redirect back to chat view or home
           this.$router.push('/');

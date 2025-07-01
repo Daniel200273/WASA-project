@@ -264,7 +264,7 @@ func (db *appdbimpl) GetOrCreateDirectConversation(user1ID, user2ID string) (*Co
 	_, err = tx.Exec(createQuery, conversationID, user1ID)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("error creating conversation: %w (rollback failed: %v)", err, rollbackErr)
+			return nil, fmt.Errorf("error creating conversation: %w (rollback failed: %w)", err, rollbackErr)
 		}
 		return nil, fmt.Errorf("error creating conversation: %w", err)
 	}
@@ -277,7 +277,7 @@ func (db *appdbimpl) GetOrCreateDirectConversation(user1ID, user2ID string) (*Co
 	_, err = tx.Exec(addParticipantQuery, conversationID, user1ID)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("error adding user1 to conversation: %w (rollback failed: %v)", err, rollbackErr)
+			return nil, fmt.Errorf("error adding user1 to conversation: %w (rollback failed: %w)", err, rollbackErr)
 		}
 		return nil, fmt.Errorf("error adding user1 to conversation: %w", err)
 	}
@@ -285,7 +285,7 @@ func (db *appdbimpl) GetOrCreateDirectConversation(user1ID, user2ID string) (*Co
 	_, err = tx.Exec(addParticipantQuery, conversationID, user2ID)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("error adding user2 to conversation: %w (rollback failed: %v)", err, rollbackErr)
+			return nil, fmt.Errorf("error adding user2 to conversation: %w (rollback failed: %w)", err, rollbackErr)
 		}
 		return nil, fmt.Errorf("error adding user2 to conversation: %w", err)
 	}

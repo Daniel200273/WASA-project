@@ -68,7 +68,8 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 	var photoURL *string
 	var replyTo *string
 
-	if strings.Contains(contentType, "application/json") {
+	switch {
+	case strings.Contains(contentType, "application/json"):
 		// Text message
 		var req SendMessageRequest
 		if err := parseJSONRequest(r, &req); err != nil {
@@ -84,7 +85,7 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 
 		content = &req.Content
 		replyTo = req.ReplyTo
-	} else if strings.Contains(contentType, "multipart/form-data") {
+	case strings.Contains(contentType, "multipart/form-data"):
 		// Photo message
 		file, header, err := getUploadedFile(r, "photo")
 		if err != nil {
@@ -110,7 +111,7 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 		if replyToStr := r.FormValue("replyTo"); replyToStr != "" {
 			replyTo = &replyToStr
 		}
-	} else {
+	default:
 		sendErrorResponse(w, http.StatusBadRequest, "Content-Type must be application/json or multipart/form-data", ctx)
 		return
 	}
@@ -189,11 +190,12 @@ func (rt *_router) forwardMessage(w http.ResponseWriter, r *http.Request, ps htt
 	forwardedMessage, err := rt.db.ForwardMessage(messageID, req.ConversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to forward message")
-		if strings.Contains(err.Error(), "not found") {
+		switch {
+		case strings.Contains(err.Error(), "not found"):
 			sendErrorResponse(w, http.StatusNotFound, "Message not found", ctx)
-		} else if strings.Contains(err.Error(), "not authorized") || strings.Contains(err.Error(), "not a participant") {
+		case strings.Contains(err.Error(), "not authorized") || strings.Contains(err.Error(), "not a participant"):
 			sendErrorResponse(w, http.StatusForbidden, "Unauthorized to forward message", ctx)
-		} else {
+		default:
 			sendErrorResponse(w, http.StatusInternalServerError, "Failed to forward message", ctx)
 		}
 		return
@@ -251,11 +253,12 @@ func (rt *_router) deleteMessage(w http.ResponseWriter, r *http.Request, ps http
 	err := rt.db.DeleteMessage(messageID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to delete message")
-		if strings.Contains(err.Error(), "not found") {
+		switch {
+		case strings.Contains(err.Error(), "not found"):
 			sendErrorResponse(w, http.StatusNotFound, "Message not found", ctx)
-		} else if strings.Contains(err.Error(), "unauthorized") {
+		case strings.Contains(err.Error(), "unauthorized"):
 			sendErrorResponse(w, http.StatusForbidden, "Unauthorized to delete message", ctx)
-		} else {
+		default:
 			sendErrorResponse(w, http.StatusInternalServerError, "Failed to delete message", ctx)
 		}
 		return
@@ -298,11 +301,12 @@ func (rt *_router) commentMessage(w http.ResponseWriter, r *http.Request, ps htt
 	reaction, err := rt.db.CreateMessageReaction(messageID, userID, req.Emoticon)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to create message reaction")
-		if strings.Contains(err.Error(), "not found") {
+		switch {
+		case strings.Contains(err.Error(), "not found"):
 			sendErrorResponse(w, http.StatusNotFound, "Message not found", ctx)
-		} else if strings.Contains(err.Error(), "not authorized") {
+		case strings.Contains(err.Error(), "not authorized"):
 			sendErrorResponse(w, http.StatusForbidden, "Unauthorized to react to message", ctx)
-		} else {
+		default:
 			sendErrorResponse(w, http.StatusInternalServerError, "Failed to create reaction", ctx)
 		}
 		return
@@ -351,11 +355,12 @@ func (rt *_router) uncommentMessage(w http.ResponseWriter, r *http.Request, ps h
 	err := rt.db.DeleteMessageReaction(commentID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to delete message reaction")
-		if strings.Contains(err.Error(), "not found") {
+		switch {
+		case strings.Contains(err.Error(), "not found"):
 			sendErrorResponse(w, http.StatusNotFound, "Reaction not found", ctx)
-		} else if strings.Contains(err.Error(), "unauthorized") {
+		case strings.Contains(err.Error(), "unauthorized"):
 			sendErrorResponse(w, http.StatusForbidden, "Unauthorized to delete reaction", ctx)
-		} else {
+		default:
 			sendErrorResponse(w, http.StatusInternalServerError, "Failed to delete reaction", ctx)
 		}
 		return

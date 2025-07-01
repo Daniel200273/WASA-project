@@ -24,8 +24,9 @@ func (rt *_router) wrap(fn httpRouterHandler, auth bool) func(http.ResponseWrite
 		}
 		// Check if the user is authorized
 		userID := ""
+		token := ""
 		if auth {
-			userID = isAuthorized(r.Header, rt.db)
+			userID, token = isAuthorized(r.Header, rt.db)
 
 			if userID == "" {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -36,6 +37,7 @@ func (rt *_router) wrap(fn httpRouterHandler, auth bool) func(http.ResponseWrite
 		var ctx = reqcontext.RequestContext{
 			ReqUUID: reqUUID,
 			UserID:  userID,
+			Token:   token,
 		}
 
 		// Create a request-specific logger
