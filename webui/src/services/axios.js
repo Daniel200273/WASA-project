@@ -1,4 +1,5 @@
 import axios from "axios";
+import AuthService from "./auth.js";
 
 const instance = axios.create({
   baseURL: __API_URL__,
@@ -7,8 +8,8 @@ const instance = axios.create({
 
 // Add authentication header to all requests
 instance.interceptors.request.use((config) => {
-  // Get token from sessionStorage (separate per tab)
-  const token = sessionStorage.getItem("authToken");
+  // Get token from AuthService
+  const token = AuthService.getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -21,7 +22,7 @@ instance.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid, clear session
-      sessionStorage.clear();
+      AuthService.clearAuthData();
       window.location.href = "/login";
     }
     return Promise.reject(error);
