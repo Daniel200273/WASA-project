@@ -4,19 +4,20 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Find Users</h5>
-          <button type="button" class="btn-close" @click="$emit('close')"></button>
+          <button type="button" class="btn-close" @click="$emit('close')" />
         </div>
         
         <div class="modal-body">
           <div class="search-input-container">
             <input 
               v-model="searchQuery" 
-              @input="onSearch"
-              type="text" 
+              type="text"
               class="form-control" 
-              placeholder="Search for users..."
-              autofocus>
-            <svg class="search-icon feather"><use href="/feather-sprite-v4.29.0.svg#search"/></svg>
+              placeholder="Search for users..." 
+              autofocus
+              @input="onSearch"
+            >
+            <svg class="search-icon feather"><use href="/feather-sprite-v4.29.0.svg#search" /></svg>
           </div>
           
           <!-- Loading State -->
@@ -26,28 +27,30 @@
           
           <!-- Search Results -->
           <div v-else-if="searchResults.length" class="search-results">
-            <div v-for="user in searchResults" 
-                 :key="user.id" 
-                 class="user-result" 
-                 @click="selectUser(user)">
+            <div
+              v-for="user in searchResults" 
+              :key="user.id" 
+              class="user-result" 
+              @click="selectUser(user)"
+            >
               <img :src="user.photo || '/default-avatar.svg'" :alt="user.name" class="user-avatar">
               <div class="user-info">
                 <div class="user-name">{{ user.name }}</div>
               </div>
-              <svg class="feather select-arrow"><use href="/feather-sprite-v4.29.0.svg#chevron-right"/></svg>
+              <svg class="feather select-arrow"><use href="/feather-sprite-v4.29.0.svg#chevron-right" /></svg>
             </div>
           </div>
           
           <!-- Empty State -->
           <div v-else-if="searchQuery && !loading" class="empty-results">
-            <svg class="feather empty-icon"><use href="/feather-sprite-v4.29.0.svg#users"/></svg>
+            <svg class="feather empty-icon"><use href="/feather-sprite-v4.29.0.svg#users" /></svg>
             <p>No users found</p>
             <small class="text-muted">Try a different search term</small>
           </div>
           
           <!-- Initial State -->
           <div v-else class="initial-state">
-            <svg class="feather search-large"><use href="/feather-sprite-v4.29.0.svg#search"/></svg>
+            <svg class="feather search-large"><use href="/feather-sprite-v4.29.0.svg#search" /></svg>
             <p>Search for users to start a conversation</p>
           </div>
         </div>
@@ -71,6 +74,12 @@ export default {
       searchResults: [],
       loading: false,
       searchTimeout: null
+    }
+  },
+  
+  beforeUnmount() {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
     }
   },
   methods: {
@@ -117,12 +126,6 @@ export default {
     
     selectUser(user) {
       this.$emit('select-user', user);
-    }
-  },
-  
-  beforeUnmount() {
-    if (this.searchTimeout) {
-      clearTimeout(this.searchTimeout);
     }
   }
 }

@@ -10,7 +10,7 @@ info:
     name: Emanuele Panizzi, Enrico Bassetti
 
 servers:
-  - url: http://localhost:3000
+  - url: http://localhost:3000/v1
     description: Development server
 
 tags:
@@ -68,8 +68,8 @@ paths:
                 properties:
                   identifier:
                     type: string
+                    description: User authentication token
                     example: "abcdef012345"
-                    description: User identifier to be used for authentication
                     pattern: '^[a-zA-Z0-9]+$'
                     minLength: 6
                     maxLength: 64
@@ -165,6 +165,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              example:
+                id: "john_doe"
+                userId: "john_doe"
+                username: "john_doe"
+                profilePicture: ""
+                bio: "Software developer passionate about creating amazing applications"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -285,6 +291,7 @@ paths:
             type: string
             minLength: 6
             maxLength: 64
+            pattern: '^[a-zA-Z0-9]+$'
       responses:
         '200':
           description: List of conversations
@@ -333,6 +340,7 @@ paths:
             type: string
             minLength: 6
             maxLength: 64
+            pattern: '^[a-zA-Z0-9]+$'
       requestBody:
         description: Target user to start conversation with
         required: true
@@ -340,16 +348,18 @@ paths:
           application/json:
             schema:
               type: object
+              description: Request payload containing target user information to start a conversation with
               properties:
-                userId:
+                targetUserId:
                   type: string
                   description: ID of the user to start conversation with
                   minLength: 6
                   maxLength: 64
+                  pattern: '^[a-zA-Z0-9]+$'
               required:
-                - userId
+                - targetUserId
             example:
-              userId: "user456"
+              targetUserId: "user456"
       responses:
         '201':
           description: Conversation created or retrieved successfully
@@ -357,12 +367,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConversationDetail'
+              example:
+                id: "conv_123"
+                name: "Direct Conversation"
+                conversationId: "conv_123"
+                type: "direct"
+                participants: ["john_doe", "user456"]
+                messages: []
+                lastMessage:
+                  messageId: "msg_456"
+                  senderId: "john_doe"
+                  content: "Hello! How are you?"
+                  timestamp: "2024-01-15T10:30:00Z"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '404':
           description: Target user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /users/{userId}/conversations/{conversationId}:
     get:
@@ -379,6 +405,7 @@ paths:
             type: string
             minLength: 6
             maxLength: 64
+            pattern: '^[a-zA-Z0-9]+$'
         - name: conversationId
           in: path
           required: true
@@ -872,16 +899,16 @@ paths:
               type: object
               description: User to add to the group
               properties:
-                userId:
+                memberId:
                   type: string
                   description: User ID to add to the group
                   minLength: 1
                   maxLength: 36
                   pattern: '^[a-zA-Z0-9_-]+$'
               required:
-                - userId
+                - memberId
       responses:
-        '200':
+        '201':
           description: User added to group successfully
           content:
             application/json:
@@ -1117,6 +1144,7 @@ components:
         message:
           type: string
           description: Error message
+          pattern: '^.+$'
           example: "Username already exists"
       required:
         - message

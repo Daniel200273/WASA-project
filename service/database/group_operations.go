@@ -235,6 +235,67 @@ func (db *appdbimpl) UpdateGroupPhoto(groupID, photoURL string) error {
 	return nil
 }
 
+// RemoveMemberFromGroup removes a specific member from a group (admin action)
+func (db *appdbimpl) RemoveMemberFromGroup(groupID, adminUserID, memberID string) error {
+	// 1. Verify group exists and is actually a group
+	var conversationType string
+	err := db.c.QueryRow(`SELECT type FROM conversations WHERE id = ?`, groupID).Scan(&conversationType)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("group not found")
+		}
+		return fmt.Errorf("error checking group existence: %w", err)
+	}
+
+	if conversationType != ConversationTypeGroup {
+		return fmt.Errorf("conversation is not a group")
+	}
+
+	// 2. Verify admin is a member and has permission (for now, any member can remove others)
+	isAdmin, err := db.IsUserInConversation(groupID, adminUserID)
+	if err != nil {
+		return fmt.Errorf("error checking admin membership: %w", err)
+	}
+
+	if !isAdmin {
+		return fmt.Errorf("admin user is not a member of the group")
+	}
+
+	// 3. Verify target member is in the group
+	isMember, err := db.IsUserInConversation(groupID, memberID)
+	if err != nil {
+		return fmt.Errorf("error checking member membership: %w", err)
+	}
+
+	if !isMember {
+		return fmt.Errorf("target user is not a member of the group")
+	}
+
+	// 4. Prevent self-removal (use leave group instead)
+	if adminUserID == memberID {
+		return fmt.Errorf("cannot remove yourself, use leave group instead")
+	}
+
+	// 5. Remove the member from the group
+	result, err := db.c.Exec(`
+		DELETE FROM participants WHERE conversation_id = ? AND user_id = ?`,
+		groupID, memberID)
+	if err != nil {
+		return fmt.Errorf("error removing member from group: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking removal result: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("member was not removed from group")
+	}
+
+	return nil
+}
+
 // getConversationWithParticipants retrieves a conversation with all its participants
 func (db *appdbimpl) getConversationWithParticipants(conversationID string) (*Conversation, error) {
 	// Get conversation details

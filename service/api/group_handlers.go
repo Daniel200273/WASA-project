@@ -355,3 +355,47 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 	w.WriteHeader(http.StatusNoContent)
 	ctx.Logger.Info("Group photo updated successfully", "groupID", groupID, "photoURL", photoURL, "updatedBy", userID)
 }
+
+// removeMemberFromGroup handles removing a specific member from a group
+func (rt *_router) removeMemberFromGroup(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	// 1. Get groupId and memberId from URL path parameters
+	groupID := ps.ByName("groupId")
+	memberID := ps.ByName("memberId")
+
+	// 2. Validate both IDs format
+	if err := validateID(groupID, "groupId"); err != nil {
+		ctx.Logger.Error("Invalid group ID", "error", err)
+		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
+		return
+	}
+
+	if err := validateID(memberID, "memberId"); err != nil {
+		ctx.Logger.Error("Invalid member ID", "error", err)
+		sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
+		return
+	}
+
+	// 3. Get current user from context/token (admin performing the action)
+	adminUserID := ctx.UserID
+
+	// 4. Remove member from group using database operation
+	err := rt.db.RemoveMemberFromGroup(groupID, adminUserID, memberID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to remove member from group")
+		switch {
+		case strings.Contains(err.Error(), "not found"):
+			sendErrorResponse(w, http.StatusNotFound, "Group not found", ctx)
+		case strings.Contains(err.Error(), "not a member"):
+			sendErrorResponse(w, http.StatusForbidden, "Unauthorized to remove member", ctx)
+		case strings.Contains(err.Error(), "cannot remove yourself"):
+			sendErrorResponse(w, http.StatusBadRequest, "Cannot remove yourself, use leave group instead", ctx)
+		default:
+			sendErrorResponse(w, http.StatusInternalServerError, "Failed to remove member", ctx)
+		}
+		return
+	}
+
+	// 5. Return success response
+	w.WriteHeader(http.StatusNoContent)
+	ctx.Logger.Info("Member removed from group successfully", "groupID", groupID, "memberID", memberID, "adminID", adminUserID)
+}

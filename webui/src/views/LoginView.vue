@@ -1,10 +1,10 @@
 <!-- LoginView.vue -->
 <template>
-    <div class="login">
-      <h2>Enter Your Name</h2>
-      <input v-model="username" placeholder="Username" />
-      <button @click="doLogin">Log in</button>
-    </div>
+  <div class="login">
+    <h2>Enter Your Name</h2>
+    <input v-model="username" placeholder="Username">
+    <button @click="doLogin">Log in</button>
+  </div>
 </template>
   
 <script>

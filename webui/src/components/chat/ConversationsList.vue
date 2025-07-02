@@ -3,17 +3,18 @@
     <div class="conversations-header">
       <h5>Conversations</h5>
       <button class="btn btn-primary btn-sm" @click="$emit('new-chat')">
-        <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#plus"/></svg>
+        <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#plus" /></svg>
       </button>
     </div>
     
     <div class="conversations-scroll">
-      <div v-for="conversation in conversations" 
-           :key="conversation.id" 
-           class="conversation-item" 
-           :class="{ active: selectedConversationId === conversation.id }"
-           @click="$emit('select-conversation', conversation)">
-        
+      <div
+        v-for="conversation in conversations" 
+        :key="conversation.id" 
+        class="conversation-item" 
+        :class="{ active: selectedConversationId === conversation.id }"
+        @click="$emit('select-conversation', conversation)"
+      >
         <div class="conversation-avatar">
           <img :src="conversation.avatar || '/default-avatar.svg'" :alt="conversation.name">
         </div>

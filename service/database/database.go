@@ -76,6 +76,7 @@ type AppDatabase interface {
 	CreateGroup(name, createdBy string, memberIDs []string) (*Conversation, error)
 	AddUserToGroup(groupID, userID string) error
 	RemoveUserFromGroup(groupID, userID string) error
+	RemoveMemberFromGroup(groupID, adminUserID, memberID string) error
 	UpdateGroupName(groupID, name string) error
 	UpdateGroupPhoto(groupID, photoURL string) error
 	IsUserInConversation(conversationID, userID string) (bool, error)

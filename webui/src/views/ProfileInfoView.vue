@@ -3,40 +3,44 @@
     <h2>{{ getTitle() }}</h2>
     
     <div class="profile-sections">
-        <!-- Personal Profile Section (for user type) -->
-        <div v-if="type === 'user'" class="user-profile-section">
+      <!-- Personal Profile Section (for user type) -->
+      <div v-if="type === 'user'" class="user-profile-section">
         <!-- Profile picture container + edit button (only for own profile) -->
-            <div class="profile-picture-container">
-                <img v-if="userData?.photoUrl" 
-                    :src="getImageUrl(userData.photoUrl)" 
-                    alt="Profile Picture" 
-                    class="profile-picture" />
-                <img v-else src="/default-avatar.svg" 
-                    alt="Default Avatar" 
-                    class="profile-picture" />
+        <div class="profile-picture-container">
+          <img
+            v-if="userData?.photoUrl" 
+            :src="getImageUrl(userData.photoUrl)" 
+            alt="Profile Picture" 
+            class="profile-picture"
+          >
+          <img
+            v-else src="/default-avatar.svg" 
+            alt="Default Avatar" 
+            class="profile-picture"
+          >
                 
-                <button v-if="isOwnProfile" @click="changeProfilePicture" class="edit-profile-picture-btn">
-                    <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#camera"/></svg>
-                </button>
-            </div>
+          <button v-if="isOwnProfile" class="edit-profile-picture-btn" @click="changeProfilePicture">
+            <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#camera" /></svg>
+          </button>
+        </div>
 
         <!-- Username + Edit Button (only for own profile) -->
-            <div class="username-section">
-                <h4 v-if="isOwnProfile">Hi {{ userData?.username || currentUsername }}!</h4>
-                <h4 v-else>{{ userData?.username || 'Loading...' }}</h4>
-                <button v-if="isOwnProfile" @click="changeUsername" class="edit-username-btn">
-                <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#edit-2"/></svg>
-                </button>
-            </div>
-            
-            <!-- User ID display -->
-            <div v-if="userData" class="user-id-section">
-                <p v-if="isOwnProfile"><strong>Your User ID:</strong> {{ userData.id }}</p>
-                <p v-else><strong>User ID:</strong> {{ userData.id }}</p>
-            </div>
-        
-            <button v-if="isOwnProfile" @click="logout" class="logout-btn">Logout</button>
+        <div class="username-section">
+          <h4 v-if="isOwnProfile">Hi {{ userData?.username || currentUsername }}!</h4>
+          <h4 v-else>{{ userData?.username || 'Loading...' }}</h4>
+          <button v-if="isOwnProfile" class="edit-username-btn" @click="changeUsername">
+            <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#edit-2" /></svg>
+          </button>
         </div>
+            
+        <!-- User ID display -->
+        <div v-if="userData" class="user-id-section">
+          <p v-if="isOwnProfile"><strong>Your User ID:</strong> {{ userData.id }}</p>
+          <p v-else><strong>User ID:</strong> {{ userData.id }}</p>
+        </div>
+        
+        <button v-if="isOwnProfile" class="logout-btn" @click="logout">Logout</button>
+      </div>
       
       <!-- Group/Conversation Info Section (only for conversation type) -->
       <div v-if="type === 'conversation'" class="conversation-info-section">
@@ -44,13 +48,17 @@
         
         <!-- Group picture -->
         <div v-if="groupData" class="group-picture-container">
-          <img v-if="groupData?.photoUrl" 
-              :src="getImageUrl(groupData.photoUrl)" 
-              alt="Group Picture" 
-              class="group-picture" />
-          <img v-else src="/default-group.svg" 
-              alt="Default Group" 
-              class="group-picture" />
+          <img
+            v-if="groupData?.photoUrl" 
+            :src="getImageUrl(groupData.photoUrl)" 
+            alt="Group Picture" 
+            class="group-picture"
+          >
+          <img
+            v-else src="/default-group.svg" 
+            alt="Default Group" 
+            class="group-picture"
+          >
         </div>
         
         <!-- Group participants -->
@@ -58,13 +66,17 @@
           <h5>Participants ({{ groupData.participants.length }})</h5>
           <div class="participants-list">
             <div v-for="participant in groupData.participants" :key="participant.id" class="participant-item">
-              <img v-if="participant.photoUrl" 
-                  :src="getImageUrl(participant.photoUrl)" 
-                  alt="Profile" 
-                  class="participant-avatar" />
-              <img v-else src="/default-avatar.svg" 
-                  alt="Default Avatar" 
-                  class="participant-avatar" />
+              <img
+                v-if="participant.photoUrl" 
+                :src="getImageUrl(participant.photoUrl)" 
+                alt="Profile" 
+                class="participant-avatar"
+              >
+              <img
+                v-else src="/default-avatar.svg" 
+                alt="Default Avatar" 
+                class="participant-avatar"
+              >
               <span>{{ participant.username }}</span>
             </div>
           </div>
@@ -72,12 +84,12 @@
         
         <!-- Group actions -->
         <div class="group-actions">
-          <button @click="addMember" class="action-btn">
-            <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#user-plus"/></svg>
+          <button class="action-btn" @click="addMember">
+            <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#user-plus" /></svg>
             Add Member
           </button>
-          <button @click="leaveGroup" class="action-btn danger">
-            <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#log-out"/></svg>
+          <button class="action-btn danger" @click="leaveGroup">
+            <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#log-out" /></svg>
             Leave Group
           </button>
         </div>
