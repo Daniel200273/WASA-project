@@ -241,7 +241,7 @@ func (db *appdbimpl) RemoveMemberFromGroup(groupID, adminUserID, memberID string
 	var conversationType string
 	err := db.c.QueryRow(`SELECT type FROM conversations WHERE id = ?`, groupID).Scan(&conversationType)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("group not found")
 		}
 		return fmt.Errorf("error checking group existence: %w", err)
@@ -278,7 +278,7 @@ func (db *appdbimpl) RemoveMemberFromGroup(groupID, adminUserID, memberID string
 
 	// 5. Remove the member from the group
 	result, err := db.c.Exec(`
-		DELETE FROM participants WHERE conversation_id = ? AND user_id = ?`,
+		DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?`,
 		groupID, memberID)
 	if err != nil {
 		return fmt.Errorf("error removing member from group: %w", err)

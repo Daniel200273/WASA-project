@@ -1,12 +1,44 @@
 <script setup>
-import { RouterLink, RouterView, useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
 import AuthService from './services/auth.js'
+import UserSearchModal from './components/modals/UserSearchModal.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 // Check if current route is login page
 const isLoginPage = computed(() => route.name === 'Login')
+
+// Modal states
+const showUserSearch = ref(false)
+const showGroupCreate = ref(false)
+
+// Modal handlers
+const handleUserSelect = (user) => {
+  // Handle user selection (e.g., start conversation)
+  console.log('Selected user:', user)
+  showUserSearch.value = false
+}
+
+const handleGroupCreate = (groupData) => {
+  // Handle group creation - redirect to the new group's info page
+  console.log('Created group:', groupData)
+  showGroupCreate.value = false
+  
+  // Redirect to group info view
+  if (groupData && groupData.id) {
+    router.push(`/profile?type=group&id=${groupData.id}`)
+  }
+}
+
+const closeUserSearch = () => {
+  showUserSearch.value = false
+}
+
+const closeGroupCreate = () => {
+  showGroupCreate.value = false
+}
 </script>
 <script>
 export default {}
@@ -75,6 +107,21 @@ export default {}
   <div v-else class="login-container">
     <RouterView />
   </div>
+
+  <!-- Modals -->
+  <UserSearchModal 
+    v-if="showUserSearch" 
+    mode="user-search"
+    @close="closeUserSearch"
+    @select-user="handleUserSelect"
+  />
+  
+  <UserSearchModal 
+    v-if="showGroupCreate" 
+    mode="group-create"
+    @close="closeGroupCreate"
+    @group-created="handleGroupCreate"
+  />
 </template>
 
 <style>
@@ -84,5 +131,16 @@ export default {}
   align-items: center;
   justify-content: center;
   background-color: #f8f9fa;
+}
+
+/* Modal backdrop */
+.user-search-modal {
+  background-color: rgba(0, 0, 0, 0.5);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1050;
 }
 </style>

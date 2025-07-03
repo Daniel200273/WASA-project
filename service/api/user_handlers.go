@@ -20,8 +20,7 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 	}
 
 	// 2. Authorization check - user can only update their own username
-	// Allow both: real userID or session token as userID parameter
-	if userID != ctx.UserID && userID != ctx.Token {
+	if userID != ctx.UserID {
 		sendErrorResponse(w, http.StatusForbidden, "You can only update your own username", ctx)
 		return
 	}
@@ -69,8 +68,7 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 	}
 
 	// 2. Authorization check - user can only update their own photo
-	// Allow both: real userID or session token as userID parameter
-	if userID != ctx.UserID && userID != ctx.Token {
+	if userID != ctx.UserID {
 		sendErrorResponse(w, http.StatusForbidden, "You can only update your own photo", ctx)
 		return
 	}
@@ -158,23 +156,23 @@ func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httpro
 	ctx.Logger.Info("User search completed", "query", query, "resultsCount", len(users))
 }
 
-// getUserProfile handles getting a specific user's profile information by token
+// getUserProfile handles getting a specific user's profile information by user ID
 func (rt *_router) getUserProfile(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// Get token from URL parameter
+	// Get user ID from URL parameter
 	userID := ps.ByName("userId")
 	if userID == "" {
-		sendErrorResponse(w, http.StatusBadRequest, "Token is required", ctx)
+		sendErrorResponse(w, http.StatusBadRequest, "User ID is required", ctx)
 		return
 	}
 
-	// Validate token format (basic validation)
-	if len(userID) < 6 || len(userID) > 64 {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid token format", ctx)
+	// Validate user ID format (basic validation)
+	if len(userID) < 1 || len(userID) > 64 {
+		sendErrorResponse(w, http.StatusBadRequest, "Invalid user ID format", ctx)
 		return
 	}
 
-	// Retrieve user from database using token
-	user, err := rt.db.GetUserByToken(userID)
+	// Get user by ID directly
+	user, err := rt.db.GetUserByID(userID)
 	if err != nil {
 		if err.Error() == "user not found" {
 			sendErrorResponse(w, http.StatusNotFound, "User not found", ctx)

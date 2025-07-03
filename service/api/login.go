@@ -44,6 +44,7 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	// Prepare response
 	response := LoginResponse{
 		Identifier: token,
+		UserID:     user.ID,
 	}
 
 	// Send response

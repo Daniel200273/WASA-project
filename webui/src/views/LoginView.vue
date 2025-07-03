@@ -27,8 +27,12 @@ export default {
                     name: this.username  // API expects 'name' not 'username'
                 });
                 
-                // Store the token in sessionStorage
-                AuthService.setAuthData(response.data.identifier, this.username);
+                // Get the token and user ID from the response
+                const token = response.data.identifier;
+                const userId = response.data.userId;
+                
+                // Store the token, username, and user ID
+                AuthService.setAuthData(token, this.username, userId);
                 
                 console.log('Login successful!', response.data);
                 

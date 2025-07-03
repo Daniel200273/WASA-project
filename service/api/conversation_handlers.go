@@ -241,6 +241,10 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	// Handle photo URL
 	response.PhotoURL = conversationDetails.PhotoURL
 
+	// Handle timestamps
+	response.CreatedAt = &conversationDetails.CreatedAt
+	response.LastMessageAt = &conversationDetails.LastMessageAt
+
 	// Convert participants to members format
 	response.Members = make([]UserResponse, len(conversationDetails.Participants))
 	for i, participant := range conversationDetails.Participants {

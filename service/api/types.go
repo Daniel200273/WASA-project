@@ -59,6 +59,7 @@ type StartConversationRequest struct {
 // LoginResponse represents the login response body
 type LoginResponse struct {
 	Identifier string `json:"identifier"`
+	UserID     string `json:"userId"`
 }
 
 // ErrorResponse represents error response
@@ -127,12 +128,14 @@ type MessageResponse struct {
 
 // ConversationDetailResponse represents conversation details with messages
 type ConversationDetailResponse struct {
-	ID       string            `json:"id"`
-	Type     string            `json:"type"`
-	Name     string            `json:"name"`
-	PhotoURL *string           `json:"photoUrl,omitempty"`
-	Members  []UserResponse    `json:"members"`
-	Messages []MessageResponse `json:"messages"`
+	ID            string            `json:"id"`
+	Type          string            `json:"type"`
+	Name          string            `json:"name"`
+	PhotoURL      *string           `json:"photoUrl,omitempty"`
+	CreatedAt     *time.Time        `json:"createdAt,omitempty"`
+	LastMessageAt *time.Time        `json:"lastMessageAt,omitempty"`
+	Members       []UserResponse    `json:"members"`
+	Messages      []MessageResponse `json:"messages"`
 }
 
 // GroupResponse represents a group with all details
