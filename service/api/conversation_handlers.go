@@ -140,8 +140,13 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 			convResp.Name = ConversationTypeDefault // Fallback name
 		}
 
-		// Handle photo URL
-		convResp.PhotoURL = dbConv.PhotoURL
+		// Handle photo URL - for direct conversations, use other participant's photo
+		switch {
+		case dbConv.Type == "direct" && dbConv.OtherParticipant != nil:
+			convResp.PhotoURL = dbConv.OtherParticipant.PhotoURL
+		default:
+			convResp.PhotoURL = dbConv.PhotoURL
+		}
 
 		// Convert last message if present
 		if dbConv.LastMessage != nil {
@@ -238,8 +243,13 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 		response.Name = ConversationTypeDefault // Fallback name
 	}
 
-	// Handle photo URL
-	response.PhotoURL = conversationDetails.PhotoURL
+	// Handle photo URL - for direct conversations, use other participant's photo
+	switch {
+	case conversationDetails.Type == "direct" && conversationDetails.OtherParticipant != nil:
+		response.PhotoURL = conversationDetails.OtherParticipant.PhotoURL
+	default:
+		response.PhotoURL = conversationDetails.PhotoURL
+	}
 
 	// Handle timestamps
 	response.CreatedAt = &conversationDetails.CreatedAt
