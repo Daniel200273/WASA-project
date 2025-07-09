@@ -2,8 +2,14 @@ package database
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gofrs/uuid"
+)
+
+// Constants for message status
+const (
+	MessageStatusSent = "sent"
 )
 
 // === MESSAGE OPERATIONS ===
@@ -114,7 +120,7 @@ func (db *appdbimpl) GetMessage(messageID string) (*Message, error) {
 	}
 
 	// Set message status (for now, just set as "sent")
-	msg.Status = "sent"
+	msg.Status = MessageStatusSent
 
 	// Get reactions/comments for this message
 	msg.Comments, err = db.getMessageReactions(msg.ID)
@@ -228,8 +234,8 @@ func (db *appdbimpl) ForwardMessage(messageID, targetConversationID, userID stri
 	return db.GetMessage(forwardedMessageID)
 }
 
-// GetConversationMessages retrieves all messages in a conversation
-func (db *appdbimpl) GetConversationMessages(conversationID string) ([]Message, error) {
+// GetConversationMessages retrieves all messages in a conversation with read status
+func (db *appdbimpl) GetConversationMessages(conversationID, currentUserID string) ([]Message, error) {
 	// Query to get all messages in the conversation with sender usernames
 	query := `
 		SELECT m.id, m.conversation_id, m.sender_id, u.username, m.content, 
@@ -264,8 +270,8 @@ func (db *appdbimpl) GetConversationMessages(conversationID string) ([]Message, 
 			return nil, fmt.Errorf("error scanning message: %w", err)
 		}
 
-		// Set message status (for now, just set as "sent" - this would be enhanced with read receipts)
-		msg.Status = "sent"
+		// Determine message status based on read receipts
+		msg.Status = db.calculateMessageStatus(msg, conversationID, currentUserID)
 
 		// Get reactions/comments for this message
 		msg.Comments, err = db.getMessageReactions(msg.ID)
@@ -281,6 +287,48 @@ func (db *appdbimpl) GetConversationMessages(conversationID string) ([]Message, 
 	}
 
 	return messages, nil
+}
+
+// calculateMessageStatus determines if a message has been read by checking last_read_at timestamps
+func (db *appdbimpl) calculateMessageStatus(msg Message, conversationID, currentUserID string) string {
+	// If the message is not from the current user, status is always "sent" from their perspective
+	if msg.SenderID != currentUserID {
+		return MessageStatusSent
+	}
+
+	// For messages sent by the current user, check if other participants have read them
+	// Get the last_read_at timestamps of other participants
+	query := `
+		SELECT MAX(last_read_at) as max_read_at
+		FROM conversation_participants 
+		WHERE conversation_id = ? AND user_id != ?
+	`
+
+	var maxReadAtStr *string
+	err := db.c.QueryRow(query, conversationID, currentUserID).Scan(&maxReadAtStr)
+	if err != nil {
+		// If there's an error or no data, default to "sent"
+		return MessageStatusSent
+	}
+
+	// If no one has read anything yet, or maxReadAtStr is nil
+	if maxReadAtStr == nil || *maxReadAtStr == "" {
+		return MessageStatusSent
+	}
+
+	// Parse the timestamp string
+	maxReadAt, err := time.Parse("2006-01-02 15:04:05", *maxReadAtStr)
+	if err != nil {
+		return MessageStatusSent
+	}
+
+	// If the other participants' latest read time is after this message was created, it's been read
+	if maxReadAt.After(msg.CreatedAt) || maxReadAt.Equal(msg.CreatedAt) {
+		return "read"
+	}
+
+	// Otherwise, it's just been sent
+	return MessageStatusSent
 }
 
 // getMessageReactions retrieves all reactions for a specific message

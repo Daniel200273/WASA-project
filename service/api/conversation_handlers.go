@@ -10,6 +10,7 @@ import (
 // Constants for conversation types
 const (
 	ConversationTypeDefault = "Conversation"
+	ConversationTypeDirect  = "direct"
 )
 
 // startConversation creates or gets a direct conversation with another user
@@ -132,7 +133,7 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 
 		// Handle name - check if direct conversation and use other participant's name if available
 		switch {
-		case dbConv.Type == "direct" && dbConv.OtherParticipant != nil:
+		case dbConv.Type == ConversationTypeDirect && dbConv.OtherParticipant != nil:
 			convResp.Name = dbConv.OtherParticipant.Username
 		case dbConv.Name != nil:
 			convResp.Name = *dbConv.Name
@@ -142,7 +143,7 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 
 		// Handle photo URL - for direct conversations, use other participant's photo
 		switch {
-		case dbConv.Type == "direct" && dbConv.OtherParticipant != nil:
+		case dbConv.Type == ConversationTypeDirect && dbConv.OtherParticipant != nil:
 			convResp.PhotoURL = dbConv.OtherParticipant.PhotoURL
 		default:
 			convResp.PhotoURL = dbConv.PhotoURL
@@ -154,6 +155,7 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 				ID:             dbConv.LastMessage.ID,
 				Content:        dbConv.LastMessage.Content,
 				Timestamp:      dbConv.LastMessage.Timestamp,
+				SenderID:       dbConv.LastMessage.SenderID,
 				SenderUsername: dbConv.LastMessage.SenderUsername,
 				HasPhoto:       dbConv.LastMessage.HasPhoto,
 			}
@@ -219,8 +221,8 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 		ctx.Logger.WithError(err).Warn("Failed to mark conversation as read") // Don't fail the request for this
 	}
 
-	// 7. Get all messages in conversation with sender info
-	messages, err := rt.db.GetConversationMessages(conversationID)
+	// 7. Get all messages in conversation with sender info and read status
+	messages, err := rt.db.GetConversationMessages(conversationID, ctx.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to retrieve conversation messages")
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve messages", ctx)
@@ -235,7 +237,7 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 
 	// Handle conversation name - for direct conversations, use other participant's name
 	switch {
-	case conversationDetails.Type == "direct" && conversationDetails.OtherParticipant != nil:
+	case conversationDetails.Type == ConversationTypeDirect && conversationDetails.OtherParticipant != nil:
 		response.Name = conversationDetails.OtherParticipant.Username
 	case conversationDetails.Name != nil:
 		response.Name = *conversationDetails.Name
@@ -245,7 +247,7 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 
 	// Handle photo URL - for direct conversations, use other participant's photo
 	switch {
-	case conversationDetails.Type == "direct" && conversationDetails.OtherParticipant != nil:
+	case conversationDetails.Type == ConversationTypeDirect && conversationDetails.OtherParticipant != nil:
 		response.PhotoURL = conversationDetails.OtherParticipant.PhotoURL
 	default:
 		response.PhotoURL = conversationDetails.PhotoURL

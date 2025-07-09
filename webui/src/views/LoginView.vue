@@ -34,7 +34,7 @@ export default {
                 // Store the token, username, and user ID
                 AuthService.setAuthData(token, this.username, userId);
                 
-                console.log('Login successful!', response.data);
+
                 
                 // Redirect to home page
                 this.$router.push('/');

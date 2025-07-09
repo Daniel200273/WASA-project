@@ -166,6 +166,7 @@
 import AuthService from '../services/auth.js';
 import axios from '../services/axios.js';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
+import { getImageUrl } from '../utils/imageUtils.js';
 
 export default {
   name: 'ProfileInfoView',
@@ -259,16 +260,6 @@ export default {
       // Can remove any member except yourself
       return participant.id !== AuthService.getUserId();
     },
-    
-    getImageUrl(photoUrl) {
-      if (!photoUrl) return '/default-avatar.svg';
-      
-      // photoUrl comes as "/uploads/profiles/filename.jpg" from backend
-      // We need to prepend the API base URL and add cache busting
-      const baseURL = axios.defaults.baseURL || 'http://localhost:3000';
-      const timestamp = Date.now(); // Cache busting parameter
-      return `${baseURL}${photoUrl}?t=${timestamp}`;
-    },
     async loadUser() {
         try {
             this.isLoading = true;
@@ -291,10 +282,8 @@ export default {
             const response = await axios.get(`/users/${userIdParam}`);
             this.userData = response.data;
             
-            // Force Vue to reactively update the DOM
-            this.$nextTick(() => {
-                this.$forceUpdate();
-            });
+            // Remove the force update as it's causing performance issues
+            // Vue's reactivity system will handle the updates automatically
         }
         catch (error) {
             console.error('Error loading user:', error);
@@ -336,7 +325,7 @@ export default {
                 this.groupData.participants = this.groupData.members;
             }
             
-            console.log('Group data loaded:', this.groupData); // Debug log
+
         }
         catch (error) {
             console.error('Error loading group:', error);
@@ -563,7 +552,10 @@ export default {
     goToChat() {
       // Navigate to the chat view for this conversation
       this.$router.push(`/chat/${this.id}`);
-    }
+    },
+
+    // Expose the getImageUrl function to the template
+    getImageUrl
   }
 }
 </script>

@@ -2,7 +2,7 @@
   <div class="message-input">
     <div class="input-container">
       <!-- Photo upload button -->
-      <button class="input-action-btn" @click="selectPhoto" :disabled="disabled" title="Attach photo">
+      <button class="input-action-btn" :disabled="disabled" title="Attach photo" @click="selectPhoto">
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#image" /></svg>
       </button>
 
@@ -13,19 +13,19 @@
           v-model="messageText"
           :placeholder="placeholder"
           :disabled="disabled"
-          @keydown="handleKeyDown"
-          @input="adjustHeight"
           rows="1"
           class="text-input"
-        ></textarea>
+          @keydown="handleKeyDown"
+          @input="adjustHeight"
+        />
       </div>
 
       <!-- Send button -->
       <button 
         class="send-btn" 
-        @click="sendMessage" 
-        :disabled="disabled || (!messageText.trim() && !selectedPhoto)"
+        :disabled="disabled || (!messageText.trim() && !selectedPhoto)" 
         title="Send message"
+        @click="sendMessage"
       >
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#send" /></svg>
       </button>
@@ -34,8 +34,8 @@
     <!-- Photo preview -->
     <div v-if="selectedPhoto" class="photo-preview">
       <div class="photo-preview-container">
-        <img :src="photoPreviewUrl" alt="Photo to send" />
-        <button class="remove-photo" @click="removePhoto" title="Remove photo">
+        <img :src="photoPreviewUrl" alt="Photo to send">
+        <button class="remove-photo" title="Remove photo" @click="removePhoto">
           <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#x" /></svg>
         </button>
       </div>
@@ -49,9 +49,9 @@
       ref="photoInput"
       type="file"
       accept="image/*"
-      @change="handlePhotoSelect"
       style="display: none;"
-    />
+      @change="handlePhotoSelect"
+    >
   </div>
 </template>
 
@@ -72,6 +72,7 @@ export default {
       default: null
     }
   },
+  emits: ['send-message', 'send-photo'],
   data() {
     return {
       messageText: '',
@@ -91,6 +92,12 @@ export default {
   },
   mounted() {
     this.adjustHeight();
+  },
+  beforeUnmount() {
+    // Clean up photo preview URL
+    if (this.photoPreviewUrl) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+    }
   },
   methods: {
     handleKeyDown(event) {
@@ -171,12 +178,6 @@ export default {
           textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
         }
       });
-    }
-  },
-  beforeUnmount() {
-    // Clean up photo preview URL
-    if (this.photoPreviewUrl) {
-      URL.revokeObjectURL(this.photoPreviewUrl);
     }
   }
 }

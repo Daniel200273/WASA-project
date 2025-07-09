@@ -3,23 +3,24 @@
     <!-- Message content -->
     <div class="message-content">
       <!-- Sender name (only for group chats and non-own messages) -->
-      <div v-if="!isOwn && showSender && isGroupChat" class="message-sender">
+      <div v-if="showSender && !isOwn && isGroupChat" class="message-sender" :style="{ color: usernameColor }">
         {{ message.senderUsername }}
       </div>
 
       <!-- Reply context -->
       <div v-if="message.replyToId" class="reply-context">
-        <div class="reply-indicator"></div>
+        <div class="reply-indicator" />
         <div class="reply-info">
-          <span class="reply-to">Reply to message</span>
+          <span class="reply-to">Reply to <span :style="{ color: repliedMessageUsernameColor }">{{ repliedMessage ? repliedMessage.senderUsername : 'message' }}</span></span>
+          <div v-if="repliedMessagePreview" class="reply-preview-text">{{ repliedMessagePreview }}</div>
         </div>
       </div>
 
       <!-- Message bubble -->
-      <div class="message-bubble" :class="{ 'own-bubble': isOwn, 'optimistic-message': message.isOptimistic }">
+      <div class="message-bubble" :class="{ 'own-bubble': isOwn }">
         <!-- Photo message -->
         <div v-if="message.photoUrl" class="message-photo">
-          <img :src="getImageUrl(message.photoUrl)" :alt="message.content || 'Photo'" @click="openPhotoModal" />
+          <img :src="getImageUrl(message.photoUrl)" :alt="message.content || 'Photo'" @click="openPhotoModal">
         </div>
 
         <!-- Text content -->
@@ -43,7 +44,7 @@
               <use href="/feather-sprite-v4.29.0.svg#check" />
             </svg>
             <svg v-else-if="computedMessageStatus === 'read'" class="feather status-icon status-read">
-              <use href="/feather-sprite-v4.29.0.svg#check-check" />
+              <use href="/feather-sprite-v4.29.0.svg#check" />
             </svg>
           </div>
         </div>
@@ -65,16 +66,16 @@
     </div>
 
     <!-- Message actions -->
-    <div class="message-actions" v-show="showActions">
-      <button class="action-btn" @click="$emit('reply', message)" title="Reply">
+    <div class="message-actions">
+      <button class="action-btn" title="Reply" @click="$emit('reply', message)">
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#corner-up-left" /></svg>
       </button>
       
-      <button class="action-btn" @click="showReactionPicker = !showReactionPicker" title="React">
+      <button class="action-btn" title="React" @click="showReactionPicker = !showReactionPicker">
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#smile" /></svg>
       </button>
       
-      <button v-if="isOwn" class="action-btn danger" @click="$emit('delete', message)" title="Delete">
+      <button v-if="isOwn" class="action-btn danger" title="Delete" @click="$emit('delete', message)">
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#trash-2" /></svg>
       </button>
 
@@ -94,6 +95,8 @@
 </template>
 
 <script>
+import { getImageUrl } from '../../utils/imageUtils.js';
+
 export default {
   name: 'MessageItem',
   props: {
@@ -105,22 +108,30 @@ export default {
       type: Boolean,
       default: false
     },
-    showAvatar: {
-      type: Boolean,
-      default: true
-    },
     showSender: {
       type: Boolean,
-      default: true
+      default: false
     },
     isGroupChat: {
       type: Boolean,
       default: false
+    },
+    conversationReadAt: {
+      type: String,
+      default: null
+    },
+    allMessages: {
+      type: Array,
+      default: () => []
+    },
+    usernameColor: {
+      type: String,
+      default: '#007bff'
     }
   },
+  emits: ['reply', 'react', 'delete'],
   data() {
     return {
-      showActions: false,
       showReactionPicker: false,
       quickReactions: ['👍', '❤️', '😂', '😮', '😢', '😡']
     }
@@ -141,37 +152,44 @@ export default {
         }
         groups[comment.emoticon].count++;
         groups[comment.emoticon].users.push(comment.username);
-        
-        // Check if current user has this reaction (you'd need to pass current user ID)
-        // groups[comment.emoticon].hasOwnReaction = comment.userId === this.currentUserId;
       });
       
       return Object.values(groups);
     },
     
     computedMessageStatus() {
-      // Simple logic: If the message is older than 5 minutes, consider it "read"
-      // In a real app, this would be based on actual read receipts from the backend
-      const messageTime = new Date(this.message.timestamp);
-      const now = new Date();
-      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      // Use the status from the backend if available, otherwise default to 'sent'
+      return this.message.status || 'sent';
+    },
+
+    repliedMessage() {
+      if (!this.message.replyToId || !this.allMessages) return null;
+      return this.allMessages.find(msg => msg.id === this.message.replyToId);
+    },
+
+    repliedMessagePreview() {
+      if (!this.repliedMessage) return null;
       
-      // If message is older than 5 minutes, show as read
-      if (messageTime < fiveMinutesAgo) {
-        return 'read';
+      if (this.repliedMessage.content) {
+        // Truncate text to one line (about 50 characters)
+        const maxLength = 50;
+        return this.repliedMessage.content.length > maxLength 
+          ? this.repliedMessage.content.substring(0, maxLength) + '...'
+          : this.repliedMessage.content;
+      } else if (this.repliedMessage.photoUrl) {
+        return 'Photo';
       }
       
-      // Otherwise, show as sent
-      return 'sent';
+      return 'Message';
+    },
+    
+    repliedMessageUsernameColor() {
+      if (!this.repliedMessage || !this.isGroupChat) return '#007bff';
+      return this.getUsernameColor(this.repliedMessage.senderId);
     }
   },
   methods: {
-    getImageUrl(photoUrl) {
-      if (!photoUrl) return null;
-      // Use the same logic as ChatView for consistent URL handling
-      const baseURL = 'http://localhost:3000'; // You might want to import this from a config
-      return photoUrl.startsWith('http') ? photoUrl : `${baseURL}${photoUrl}?t=${Date.now()}`;
-    },
+    getImageUrl,
     
     formatTime(timestamp) {
       const date = new Date(timestamp);
@@ -188,8 +206,31 @@ export default {
     },
     
     openPhotoModal() {
-      // TODO: Implement photo modal
-      console.log('Open photo modal for:', this.message.photoUrl);
+      // TODO: Implement photo modal viewer in the future
+    },
+    
+    getUsernameColor(userId) {
+      // Generate a consistent color for each user based on their ID
+      const colors = [
+        '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
+        '#1abc9c', '#e67e22', '#34495e', '#16a085', '#27ae60',
+        '#2980b9', '#8e44ad', '#d35400', '#c0392b', '#7f8c8d',
+        '#f1c40f', '#e91e63', '#673ab7', '#3f51b5', '#2196f3',
+        '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39',
+        '#ffeb3b', '#ffc107', '#ff9800', '#ff5722', '#795548'
+      ];
+      
+      // Create a simple hash from the userId
+      let hash = 0;
+      for (let i = 0; i < userId.length; i++) {
+        const char = userId.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      
+      // Use the hash to pick a color
+      const colorIndex = Math.abs(hash) % colors.length;
+      return colors[colorIndex];
     }
   }
 }
@@ -201,7 +242,6 @@ export default {
   position: relative;
   padding: 0.25rem;
   border-radius: 8px;
-  transition: background-color 0.15s ease;
   display: flex;
   flex-direction: column;
 }
@@ -230,7 +270,6 @@ export default {
 
 .message-sender {
   font-size: 0.75rem;
-  color: #6c757d;
   font-weight: 600;
   margin-bottom: 0.25rem;
   padding-left: 0.75rem;
@@ -256,6 +295,16 @@ export default {
   font-size: 0.75rem;
   color: #007bff;
   font-weight: 500;
+}
+
+.reply-preview-text {
+  font-size: 0.7rem;
+  color: #6c757d;
+  margin-top: 0.125rem;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Message bubble */
@@ -343,7 +392,8 @@ export default {
 }
 
 .status-icon.status-read {
-  color: #28a745;
+  color: #00ff00;
+  stroke-width: 4;
 }
 
 /* Reactions */
@@ -390,8 +440,8 @@ export default {
 /* Message actions */
 .message-actions {
   position: absolute;
-  top: -10px;
-  right: 10px;
+  top: calc(100% + 5px);
+  left: 0;
   display: flex;
   gap: 0.125rem;
   background-color: white;
@@ -399,13 +449,13 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   padding: 0.25rem;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease;
   z-index: 10;
 }
 
 .own-message .message-actions {
-  right: auto;
-  left: 10px;
+  left: auto;
+  right: 0;
 }
 
 .action-btn {
@@ -440,7 +490,7 @@ export default {
 .reaction-picker {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;
   background-color: white;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -449,6 +499,11 @@ export default {
   gap: 0.25rem;
   z-index: 20;
   margin-top: 0.25rem;
+}
+
+.own-message .reaction-picker {
+  left: auto;
+  right: 0;
 }
 
 .quick-reaction {
@@ -463,30 +518,6 @@ export default {
 
 .quick-reaction:hover {
   background-color: #f8f9fa;
-}
-
-/* Optimistic message styling */
-.optimistic-message {
-  opacity: 0.7;
-  position: relative;
-}
-
-.optimistic-message::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
-  animation: shimmer 1.5s infinite;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
 }
 
 /* Responsive adjustments */

@@ -90,7 +90,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 
 		// Get last message for the conversation
 		lastMessageQuery := `
-			SELECT m.id, m.content, m.photo_url, m.created_at, u.username
+			SELECT m.id, m.content, m.photo_url, m.created_at, m.sender_id, u.username
 			FROM messages m
 			JOIN users u ON m.sender_id = u.id
 			WHERE m.conversation_id = ?
@@ -101,6 +101,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 		var content *string
 		var photoURL *string
 		var timestamp time.Time
+		var senderID string
 		var senderUsername string
 
 		err = db.c.QueryRow(lastMessageQuery, conv.ID).Scan(
@@ -108,6 +109,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 			&content,
 			&photoURL,
 			&timestamp,
+			&senderID,
 			&senderUsername,
 		)
 
@@ -118,6 +120,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 				ID:             msgID,
 				Content:        content,
 				Timestamp:      timestamp,
+				SenderID:       senderID,
 				SenderUsername: senderUsername,
 				HasPhoto:       hasPhoto,
 			}

@@ -9,9 +9,9 @@
           <div class="header-actions">
             <button 
               class="btn btn-sm btn-outline-secondary refresh-btn" 
-              @click="refreshAll"
               :disabled="isRefreshing"
               :title="isRefreshing ? 'Refreshing...' : 'Refresh all'"
+              @click="refreshAll"
             >
               <svg class="feather" :class="{ 'spinning': isRefreshing }">
                 <use href="/feather-sprite-v4.29.0.svg#refresh-cw" />
@@ -19,8 +19,8 @@
             </button>
             <button 
               class="btn btn-sm btn-primary" 
-              @click="showUserSearch = true"
               title="Start new chat"
+              @click="showUserSearch = true"
             >
               <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#plus" /></svg>
             </button>
@@ -60,12 +60,12 @@
               <div class="conversation-info">
                 <div class="conversation-header">
                   <h4 class="conversation-name">{{ conversation.name }}</h4>
-                  <span class="conversation-time" v-if="conversation.lastMessage">
+                  <span v-if="conversation.lastMessage" class="conversation-time">
                     {{ formatConversationTime(conversation.lastMessage.timestamp) }}
                   </span>
                 </div>
-                <p class="last-message" v-if="conversation.lastMessage">
-                  <span v-if="conversation.lastMessage.senderId === currentUserId" class="you-prefix">You: </span>
+                <p v-if="conversation.lastMessage" class="last-message">
+                  <span v-if="isLastMessageFromCurrentUser(conversation)" class="you-prefix">You: </span>
                   {{ conversation.lastMessage.content || 'Photo' }}
                 </p>
                 <p v-else class="no-messages">No messages yet</p>
@@ -91,7 +91,7 @@
           <div class="chat-header">
             <div class="chat-header-info">
               <!-- Back button for mobile -->
-              <button class="back-btn" @click="goBackToConversations" title="Back to conversations">
+              <button class="back-btn" title="Back to conversations" @click="goBackToConversations">
                 <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#arrow-left" /></svg>
               </button>
               
@@ -102,7 +102,7 @@
               >
               <div class="conversation-details">
                 <h4 class="conversation-name">{{ selectedConversation.name }}</h4>
-                <span class="participant-count" v-if="selectedConversation.type === 'group'">
+                <span v-if="selectedConversation.type === 'group'" class="participant-count">
                   {{ selectedConversation.members?.length || 0 }} members
                 </span>
               </div>
@@ -110,9 +110,9 @@
             <div class="chat-header-actions">
               <button 
                 class="btn btn-sm btn-outline-secondary refresh-btn" 
-                @click="refreshAll"
                 :disabled="isRefreshing"
                 :title="isRefreshing ? 'Refreshing...' : 'Refresh all'"
+                @click="refreshAll"
               >
                 <svg class="feather" :class="{ 'spinning': isRefreshing }">
                   <use href="/feather-sprite-v4.29.0.svg#refresh-cw" />
@@ -120,8 +120,8 @@
               </button>
               <button 
                 class="btn btn-sm btn-outline-secondary" 
-                @click="goToConversationInfo"
                 :title="selectedConversation.type === 'group' ? 'Group Info' : 'User Info'"
+                @click="goToConversationInfo"
               >
                 <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#info" /></svg>
               </button>
@@ -129,30 +129,24 @@
           </div>
 
           <!-- Messages area -->
-          <div class="messages-container" ref="messagesContainer">
+          <div ref="messagesContainer" class="messages-container">
             <!-- Only show loading spinner on initial load, not on refresh -->
             <LoadingSpinner v-if="messagesLoading && messages.length === 0" :loading="true" />
             
             <div v-else class="messages-list">
-              <!-- Message groups by date -->
-              <div v-for="(group, date) in groupedMessages" :key="date" class="message-date-group">
-                <div class="date-separator">
-                  <span class="date-text">{{ formatDateSeparator(date) }}</span>
-                </div>
-                
-                <!-- Individual messages -->
-                <div v-for="message in group" :key="message.id" class="message-wrapper">
-                  <MessageItem 
-                    :message="message"
-                    :isOwn="message.senderId === currentUserId"
-                    :showSender="shouldShowSender(message, group)"
-                    :isGroupChat="selectedConversation?.type === 'group'"
-                    :conversationReadAt="conversationReadAt"
-                    @reply="replyToMessage"
-                    @react="reactToMessage"
-                    @delete="deleteMessage"
-                  />
-                </div>
+              <!-- Individual messages -->
+              <div v-for="message in messages" :key="message.id" class="message-wrapper">
+                <MessageItem 
+                  :message="message"
+                  :is-own="message.senderId === currentUserId"
+                  :show-sender="shouldShowSender(message)"
+                  :is-group-chat="selectedConversation?.type === 'group'"
+                  :conversation-read-at="conversationReadAt"
+                  :all-messages="messages"
+                  @reply="replyToMessage"
+                  @react="reactToMessage"
+                  @delete="deleteMessage"
+                />
               </div>
 
               <!-- Empty state -->
@@ -180,7 +174,7 @@
             <MessageInput 
               :placeholder="getInputPlaceholder()"
               :disabled="sendingMessage"
-              :replyingTo="replyingTo"
+              :replying-to="replyingTo"
               @send-message="sendMessage"
               @send-photo="sendPhoto"
               @cancel-reply="cancelReply"
@@ -206,6 +200,7 @@ import LoadingSpinner from '../components/LoadingSpinner.vue';
 import MessageItem from '../components/chat/MessageItem.vue';
 import MessageInput from '../components/chat/MessageInput.vue';
 import UserSearchModal from '../components/modals/UserSearchModal.vue';
+import { getConversationAvatar, getImageUrl } from '../utils/imageUtils.js';
 
 export default {
   name: 'ChatView',
@@ -254,38 +249,35 @@ export default {
     isRefreshing() {
       return this.conversationsLoading || this.messagesLoading;
     },
-    groupedMessages() {
-      // Group messages by date for better readability
-      const groups = {};
-      this.messages.forEach(message => {
-        const date = new Date(message.timestamp).toDateString();
-        if (!groups[date]) {
-          groups[date] = [];
-        }
-        groups[date].push(message);
-      });
-      return groups;
-    }
+
   },
   watch: {
     conversationId: {
       immediate: true,
-      handler(newId) {
+      async handler(newId) {
         if (newId) {
           this.selectedConversationId = newId;
-          this.loadConversationMessages(newId);
+          // Simple: just refresh everything to ensure consistency
+          await this.refreshAll();
+        } else {
+          // Clear selection when no conversation ID
+          this.selectedConversationId = null;
+          this.selectedConversation = null;
+          this.messages = [];
+          this.replyingTo = null;
         }
-      }
-    },
-    selectedConversationId(newId) {
-      if (newId) {
-        this.loadConversationMessages(newId);
       }
     }
   },
   async mounted() {
     try {
+      // Simple: just load conversations, the watcher will handle the rest
       await this.loadConversations();
+      
+      // On desktop, auto-select first conversation if no specific one is requested
+      if (!this.conversationId && this.conversations.length > 0 && window.innerWidth > 768) {
+        this.$router.replace(`/chat/${this.conversations[0].id}`);
+      }
     } catch (error) {
       console.error('Initial load failed:', error);
       // Show a more user-friendly message for initial load failures
@@ -312,23 +304,14 @@ export default {
         // Always update conversations
         this.conversations = newConversations;
         
-        // If we have a route param, select that conversation
-        if (this.conversationId && !this.selectedConversationId) {
-          this.selectedConversationId = this.conversationId;
-        }
-        // On desktop, select the first conversation if available
+        // On desktop, select the first conversation if available and no specific one is selected
         // On mobile, keep conversations list visible by default
-        else if (!this.selectedConversationId && this.conversations.length > 0 && window.innerWidth > 768) {
+        if (!this.selectedConversationId && this.conversations.length > 0 && window.innerWidth > 768) {
           this.selectedConversationId = this.conversations[0].id;
         }
         
       } catch (error) {
         console.error('Error loading conversations:', error);
-        
-        // Only show user-facing error for non-timeout errors
-        if (error.code !== 'ECONNABORTED') {
-          console.log('Failed to load conversations - will retry on next manual refresh');
-        }
         
         // Re-throw the error so the caller can handle it
         throw error;
@@ -338,22 +321,8 @@ export default {
     },
 
     async selectConversation(conversation) {
-      this.selectedConversationId = conversation.id;
-      this.selectedConversation = conversation;
-      this.replyingTo = null; // Clear any reply state
-      
-      // Set the read timestamp to now (when the conversation is opened)
-      this.conversationReadAt = new Date().toISOString();
-      
-      // Reset unread count to 0 when conversation is selected
-      if (conversation.unreadCount > 0) {
-        conversation.unreadCount = 0;
-      }
-      
-      // Update URL without navigation
-      if (this.$route.params.conversationId !== conversation.id) {
-        this.$router.replace(`/chat/${conversation.id}`);
-      }
+      // Simple: just navigate to the conversation, the watcher will handle the rest
+      this.$router.replace(`/chat/${conversation.id}`);
     },
 
     async loadConversationMessages(conversationId) {
@@ -372,6 +341,19 @@ export default {
         this.selectedConversation = result.data;
         this.messages = result.data.messages || [];
         
+        // Update the conversation in the sidebar list if needed
+        const conversationIndex = this.conversations.findIndex(c => c.id === conversationId);
+        if (conversationIndex !== -1) {
+          // Update the conversation in place to maintain sidebar state
+          this.conversations[conversationIndex] = {
+            ...this.conversations[conversationIndex],
+            ...result.data,
+            // Keep the lastMessage and unreadCount from the list view
+            lastMessage: this.conversations[conversationIndex].lastMessage,
+            unreadCount: this.conversations[conversationIndex].unreadCount
+          };
+        }
+        
         // Set the read timestamp to now (when the conversation is loaded)
         this.conversationReadAt = new Date().toISOString();
         
@@ -385,8 +367,6 @@ export default {
         if (error.response?.status === 404) {
           // Conversation not found, redirect back to chat list
           this.$router.push('/chat');
-        } else if (error.code !== 'ECONNABORTED') {
-          console.log('Failed to load messages - will retry on next manual refresh');
         }
         
         // Re-throw the error so the caller can handle it
@@ -400,19 +380,12 @@ export default {
     async sendMessage(content, photo = null) {
       if (!this.selectedConversationId || this.sendingMessage) return;
       
-      console.log('Sending message:', { content, photo, conversationId: this.selectedConversationId });
-      
-      // Add optimistic message immediately for better UX
-      const tempMessage = this.addOptimisticMessage(content, photo);
-      
       try {
         this.sendingMessage = true;
         const userId = AuthService.getUserId();
         
         let response;
         if (photo) {
-          // Send photo message
-          console.log('Sending photo message');
           const formData = new FormData();
           formData.append('photo', photo);
           if (this.replyingTo) {
@@ -425,8 +398,6 @@ export default {
             { headers: { 'Content-Type': 'multipart/form-data' } }
           );
         } else {
-          // Send text message
-          console.log('Sending text message');
           const messageData = { content };
           if (this.replyingTo) {
             messageData.replyTo = this.replyingTo.id;
@@ -438,24 +409,22 @@ export default {
           );
         }
         
-        console.log('Message sent successfully:', response.data);
-        
-        // Replace optimistic message with real message
-        this.replaceOptimisticMessage(tempMessage, response.data);
+        // Add the new message to the messages array
+        this.messages.push(response.data);
         this.replyingTo = null;
         
-        // Update the conversation's last message in local state (more efficient than API call)
+        // Update the conversation's last message in local state
         this.updateConversationLastMessage(response.data);
         
         // Update read timestamp since sender is actively in the conversation
         this.conversationReadAt = new Date().toISOString();
         
+        this.$nextTick(() => {
+          this.scrollToBottom();
+        });
+        
       } catch (error) {
         console.error('Error sending message:', error);
-        
-        // Remove optimistic message on error
-        this.removeOptimisticMessage(tempMessage);
-        
         alert('Failed to send message. Please try again.');
       } finally {
         this.sendingMessage = false;
@@ -504,48 +473,6 @@ export default {
     },
 
     // === LOCAL STATE UPDATES ===
-    addOptimisticMessage(content, photo = null) {
-      // Create a temporary message for immediate UI feedback
-      const tempMessage = {
-        id: `temp_${Date.now()}`,
-        content: content,
-        photoUrl: photo ? URL.createObjectURL(photo) : null,
-        timestamp: new Date().toISOString(),
-        senderId: this.currentUserId,
-        senderUsername: this.currentUsername,
-        isOptimistic: true, // Mark as optimistic
-        reactions: [],
-        replyTo: this.replyingTo ? {
-          id: this.replyingTo.id,
-          content: this.replyingTo.content,
-          senderUsername: this.replyingTo.senderUsername
-        } : null
-      };
-      
-      this.messages.push(tempMessage);
-      
-      this.$nextTick(() => {
-        this.scrollToBottom();
-      });
-      
-      return tempMessage;
-    },
-
-    replaceOptimisticMessage(tempMessage, realMessage) {
-      const index = this.messages.findIndex(m => m.id === tempMessage.id);
-      if (index !== -1) {
-        this.messages.splice(index, 1, realMessage);
-      }
-    },
-
-    removeOptimisticMessage(tempMessage) {
-      const index = this.messages.findIndex(m => m.id === tempMessage.id);
-      if (index !== -1) {
-        this.messages.splice(index, 1);
-      }
-    },
-
-    // === LOCAL STATE UPDATES ===
     updateConversationLastMessage(message) {
       const conversation = this.conversations.find(c => c.id === this.selectedConversationId);
       if (conversation) {
@@ -553,8 +480,11 @@ export default {
           id: message.id,
           content: message.content,
           timestamp: message.timestamp,
-          senderId: message.senderId
+          senderId: message.senderId,
+          senderUsername: message.senderUsername
         };
+        // Reset unread count to 0 when sending a message
+        conversation.unreadCount = 0;
         // Move conversation to top of list
         const index = this.conversations.indexOf(conversation);
         if (index > 0) {
@@ -565,47 +495,35 @@ export default {
     },
 
     // === UI HELPERS ===
-    shouldShowSender(message, messagesInGroup) {
-      const index = messagesInGroup.indexOf(message);
-      const prevMessage = messagesInGroup[index - 1];
+    shouldShowSender(message) {
+      if (this.selectedConversation?.type !== 'group') {
+        // In direct messages, never show sender names
+        return false;
+      }
+      
+      // In group chats, show sender name if it's the first message from this sender
+      const messageIndex = this.messages.findIndex(m => m.id === message.id);
+      const prevMessage = messageIndex > 0 ? this.messages[messageIndex - 1] : null;
       
       // Show sender name if it's the first message from this sender
       return !prevMessage || prevMessage.senderId !== message.senderId;
     },
 
-    getConversationAvatar(conversation) {
-      if (conversation?.photoUrl) {
-        return this.getImageUrl(conversation.photoUrl);
-      }
-      return conversation?.type === 'group' ? '/default-group.svg' : '/default-avatar.svg';
+    isLastMessageFromCurrentUser(conversation) {
+      if (!conversation.lastMessage || !conversation.lastMessage.senderId) return false;
+      // Determine if the message is from the current user by comparing senderId
+      return conversation.lastMessage.senderId === this.currentUserId;
     },
 
-    getImageUrl(photoUrl) {
-      if (!photoUrl) return null;
-      const baseURL = axios.defaults.baseURL || 'http://localhost:3000';
-      return `${baseURL}${photoUrl}?t=${Date.now()}`;
-    },
+    getConversationAvatar,
+
+    getImageUrl,
 
     getInputPlaceholder() {
       if (!this.selectedConversation) return 'Type a message...';
       return this.selectedConversation.type === 'group' 
         ? `Message ${this.selectedConversation.name}...`
         : `Message ${this.selectedConversation.name}...`;
-    },
-
-    formatDateSeparator(dateString) {
-      const date = new Date(dateString);
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      if (date.toDateString() === today.toDateString()) {
-        return 'Today';
-      } else if (date.toDateString() === yesterday.toDateString()) {
-        return 'Yesterday';
-      } else {
-        return date.toLocaleDateString();
-      }
     },
 
     formatConversationTime(timestamp) {
@@ -662,19 +580,14 @@ export default {
     },
 
     async startConversationWithUser(user) {
-      console.log('Starting conversation with user:', user);
       try {
         const userId = AuthService.getUserId();
-        console.log('Current user ID:', userId);
-        console.log('Target user ID:', user.id);
         
         const response = await axios.post(`/users/${userId}/conversations`, {
           userId: user.id
         }, {
           timeout: 10000 // 10 second timeout for conversation creation
         });
-        
-        console.log('Conversation created/found:', response.data);
         
         // Create conversation object for the list
         const conversationForList = {
@@ -690,9 +603,6 @@ export default {
         const existingConv = this.conversations.find(c => c.id === response.data.id);
         if (!existingConv) {
           this.conversations.unshift(conversationForList);
-          console.log('Added new conversation to list');
-        } else {
-          console.log('Conversation already exists in list');
         }
         
         // Close the modal first
@@ -705,7 +615,6 @@ export default {
         this.conversationReadAt = new Date().toISOString();
         
         // Navigate to the conversation
-        console.log('Navigating to conversation:', response.data.id);
         this.$router.replace(`/chat/${response.data.id}`);
         
         // Scroll to bottom if there are messages
@@ -715,102 +624,47 @@ export default {
         
       } catch (error) {
         console.error('Error starting conversation:', error);
-        console.error('Error details:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          message: error.message
-        });
         alert('Failed to start conversation. Please try again.');
       }
     },
 
-    // === UNIFIED REFRESH ===
+    // === REFRESH FUNCTIONALITY ===
     async refreshAll() {
       // Debounce rapid refresh calls
       const now = Date.now();
       if (this.lastRefreshTime && (now - this.lastRefreshTime) < this.refreshDebounceMs) {
-        console.log('Refresh debounced - too soon since last refresh');
         return;
       }
       
       // Prevent multiple simultaneous refreshes
       if (this.conversationsLoading || this.messagesLoading) {
-        console.log('Refresh already in progress');
         return;
       }
       
       this.lastRefreshTime = now;
-      console.log('Unified refresh triggered');
       
       try {
         // Always refresh conversations
         await this.loadConversations();
-        console.log('Conversations refreshed successfully');
         
-        // If we have an active conversation, refresh its messages too
+        // If we have a selected conversation ID, update the UI and load messages
         if (this.selectedConversationId) {
+          const conversation = this.conversations.find(c => c.id === this.selectedConversationId);
+          if (conversation) {
+            this.selectedConversation = conversation;
+            this.conversationReadAt = new Date().toISOString();
+            this.replyingTo = null; // Clear any reply state
+            if (conversation.unreadCount > 0) {
+              conversation.unreadCount = 0;
+            }
+          }
           await this.loadConversationMessages(this.selectedConversationId);
-          console.log('Messages refreshed successfully');
         }
-        
-        console.log('Unified refresh completed successfully');
       } catch (error) {
-        console.error('Unified refresh failed:', error);
+        console.error('Refresh failed:', error);
         // Don't show alert for timeout/network errors, just log them
         if (error.code !== 'ECONNABORTED' && error.code !== 'NETWORK_ERROR') {
           alert('Failed to refresh. Please check your connection and try again.');
-        }
-      }
-    },
-
-    // === MANUAL REFRESH (Legacy - kept for backward compatibility) ===
-    async manualRefresh() {
-      // Debounce rapid refresh calls
-      const now = Date.now();
-      if (this.lastRefreshTime && (now - this.lastRefreshTime) < this.refreshDebounceMs) {
-        console.log('Refresh debounced - too soon since last refresh');
-        return;
-      }
-      
-      // Prevent multiple simultaneous refreshes
-      if (this.conversationsLoading) {
-        console.log('Refresh already in progress');
-        return;
-      }
-      
-      this.lastRefreshTime = now;
-      console.log('Manual refresh triggered');
-      
-      try {
-        await this.loadConversations();
-        console.log('Manual refresh completed successfully');
-      } catch (error) {
-        console.error('Manual refresh failed:', error);
-        // Don't show alert for timeout/network errors, just log them
-        if (error.code !== 'ECONNABORTED' && error.code !== 'NETWORK_ERROR') {
-          alert('Failed to refresh conversations. Please check your connection and try again.');
-        }
-      }
-    },
-
-    async refreshCurrentConversation() {
-      if (!this.selectedConversationId) return;
-      
-      // Prevent multiple simultaneous refreshes
-      if (this.messagesLoading) {
-        console.log('Message refresh already in progress');
-        return;
-      }
-      
-      try {
-        await this.loadConversationMessages(this.selectedConversationId);
-        console.log('Messages refreshed successfully');
-      } catch (error) {
-        console.error('Message refresh failed:', error);
-        // Don't show alert for timeout/network errors, just log them
-        if (error.code !== 'ECONNABORTED' && error.code !== 'NETWORK_ERROR') {
-          alert('Failed to refresh messages. Please check your connection and try again.');
         }
       }
     },
@@ -821,11 +675,8 @@ export default {
         try {
           return await apiCall();
         } catch (error) {
-          console.log(`API call attempt ${i + 1} failed:`, error.message);
-          
           // If it's a database lock error, wait a bit but not too long
           if (error.response?.status === 500 && error.response?.data?.includes?.('database is locked')) {
-            console.log('Database locked, waiting briefly before retry...');
             await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
           } else if (i === maxRetries - 1) {
             throw error; // Re-throw if it's the last attempt
@@ -841,7 +692,7 @@ export default {
 
 <style scoped>
 .chat-view {
-  --top-nav-height: 48px; /* Adjust this value to match your top navigation bar height */
+  --top-nav-height: 48px;
   height: calc(100vh - var(--top-nav-height));
   width: 100%;
   overflow: hidden;
@@ -1150,33 +1001,11 @@ export default {
 .messages-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-/* Date separators */
-.message-date-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.date-separator {
-  display: flex;
-  justify-content: center;
-  margin: 1rem 0;
-}
-
-.date-text {
-  background-color: #e9ecef;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  color: #6c757d;
-  font-weight: 500;
 }
 
 /* Message wrapper */
 .message-wrapper {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
 }
 
 /* Empty messages state */

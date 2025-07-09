@@ -138,6 +138,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import axios from '@/services/axios.js'
 import AuthService from '@/services/auth.js'
 import { useRouter } from 'vue-router'
+import { getImageUrl } from '../../utils/imageUtils.js';
 
 export default {
   name: 'UserSearchModal',
@@ -189,15 +190,7 @@ export default {
     }
   },
   methods: {
-    getImageUrl(photoUrl) {
-      if (!photoUrl) return '/default-avatar.svg';
-      
-      // photoUrl comes as "/uploads/profiles/filename.jpg" from backend
-      // We need to prepend the API base URL and add cache busting
-      const baseURL = axios.defaults.baseURL || '';
-      const timestamp = Date.now(); // Cache busting parameter
-      return `${baseURL}${photoUrl}?t=${timestamp}`;
-    },
+    getImageUrl,
     
     onSearch() {
       // Clear previous timeout

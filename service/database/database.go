@@ -63,7 +63,7 @@ type AppDatabase interface {
 	// === MESSAGES ===
 	CreateMessage(conversationID, senderID string, content *string, photoURL *string, replyToID *string) (*Message, error)
 	GetMessage(messageID string) (*Message, error)
-	GetConversationMessages(conversationID string) ([]Message, error)
+	GetConversationMessages(conversationID, currentUserID string) ([]Message, error)
 	DeleteMessage(messageID, userID string) error
 	ForwardMessage(messageID, targetConversationID, userID string) (*Message, error)
 	MarkConversationAsRead(conversationID, userID string) error

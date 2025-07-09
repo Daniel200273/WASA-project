@@ -17,13 +17,11 @@ const showGroupCreate = ref(false)
 // Modal handlers
 const handleUserSelect = (user) => {
   // Handle user selection (e.g., start conversation)
-  console.log('Selected user:', user)
   showUserSearch.value = false
 }
 
 const handleGroupCreate = (groupData) => {
   // Handle group creation - redirect to the new group's info page
-  console.log('Created group:', groupData)
   showGroupCreate.value = false
   
   // Redirect to group info view
