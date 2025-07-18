@@ -34,6 +34,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 )
 
 // AppDatabase is the high level interface for the DB
@@ -67,6 +68,7 @@ type AppDatabase interface {
 	DeleteMessage(messageID, userID string) error
 	ForwardMessage(messageID, targetConversationID, userID string) (*Message, error)
 	MarkConversationAsRead(conversationID, userID string) error
+	IsReadByAllGroupMembers(conversationID string, lastMessageAt time.Time) (bool, error)
 
 	// === REACTIONS ===
 	CreateMessageReaction(messageID, userID, emoticon string) (*MessageReaction, error)

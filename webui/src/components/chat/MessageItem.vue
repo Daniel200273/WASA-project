@@ -3,7 +3,7 @@
     <!-- Message content -->
     <div class="message-content">
       <!-- Sender name (only for group chats and non-own messages) -->
-      <div v-if="showSender && !isOwn && isGroupChat" class="message-sender" :style="{ color: usernameColor }">
+      <div v-if="!isOwn && isGroupChat" class="message-sender">
         {{ message.senderUsername }}
       </div>
 
@@ -11,7 +11,7 @@
       <div v-if="message.replyToId" class="reply-context">
         <div class="reply-indicator" />
         <div class="reply-info">
-          <span class="reply-to">Reply to <span :style="{ color: repliedMessageUsernameColor }">{{ repliedMessage ? repliedMessage.senderUsername : 'message' }}</span></span>
+          <span class="reply-to">{{ repliedMessage ? `Reply to ${repliedMessage.senderUsername}` : 'Reply to message' }}</span>
           <div v-if="repliedMessagePreview" class="reply-preview-text">{{ repliedMessagePreview }}</div>
         </div>
       </div>
@@ -40,9 +40,11 @@
           
           <!-- Message status for own messages -->
           <div v-if="isOwn" class="message-status">
-            <svg v-if="computedMessageStatus === 'sent'" class="feather status-icon">
+            <!-- Grey check for sent messages -->
+            <svg v-if="computedMessageStatus === 'sent'" class="feather status-icon status-sent">
               <use href="/feather-sprite-v4.29.0.svg#check" />
             </svg>
+            <!-- Bold green check for read messages (both group and direct) -->
             <svg v-else-if="computedMessageStatus === 'read'" class="feather status-icon status-read">
               <use href="/feather-sprite-v4.29.0.svg#check" />
             </svg>
@@ -62,6 +64,15 @@
           <span class="reaction-emoji">{{ reaction.emoticon }}</span>
           <span class="reaction-count">{{ reaction.count }}</span>
         </div>
+        <button class="action-btn" style="margin-left:8px;" title="Show all reactions" @click="showReactionsModal = true">
+          <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#users" /></svg>
+        </button>
+        <ReactionListModal
+          v-if="showReactionsModal"
+          :reactions="message.comments"
+          @close="showReactionsModal = false"
+          @remove="handleRemoveReaction"
+        />
       </div>
     </div>
 
@@ -73,6 +84,10 @@
       
       <button class="action-btn" title="React" @click="showReactionPicker = !showReactionPicker">
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#smile" /></svg>
+      </button>
+
+      <button class="action-btn" title="Forward" @click="$emit('forward', message)">
+        <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#share-2" /></svg>
       </button>
       
       <button v-if="isOwn" class="action-btn danger" title="Delete" @click="$emit('delete', message)">
@@ -96,6 +111,8 @@
 
 <script>
 import { getImageUrl } from '../../utils/imageUtils.js';
+import ReactionListModal from '../modals/ReactionListModal.vue';
+import axios from '../../services/axios.js';
 
 export default {
   name: 'MessageItem',
@@ -108,31 +125,23 @@ export default {
       type: Boolean,
       default: false
     },
-    showSender: {
-      type: Boolean,
-      default: false
-    },
     isGroupChat: {
       type: Boolean,
       default: false
     },
-    conversationReadAt: {
-      type: String,
-      default: null
-    },
     allMessages: {
       type: Array,
       default: () => []
-    },
-    usernameColor: {
-      type: String,
-      default: '#007bff'
     }
   },
   emits: ['reply', 'react', 'delete'],
+  components: {
+    ReactionListModal
+  },
   data() {
     return {
       showReactionPicker: false,
+      showReactionsModal: false,
       quickReactions: ['👍', '❤️', '😂', '😮', '😢', '😡']
     }
   },
@@ -181,11 +190,6 @@ export default {
       }
       
       return 'Message';
-    },
-    
-    repliedMessageUsernameColor() {
-      if (!this.repliedMessage || !this.isGroupChat) return '#007bff';
-      return this.getUsernameColor(this.repliedMessage.senderId);
     }
   },
   methods: {
@@ -209,28 +213,17 @@ export default {
       // TODO: Implement photo modal viewer in the future
     },
     
-    getUsernameColor(userId) {
-      // Generate a consistent color for each user based on their ID
-      const colors = [
-        '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
-        '#1abc9c', '#e67e22', '#34495e', '#16a085', '#27ae60',
-        '#2980b9', '#8e44ad', '#d35400', '#c0392b', '#7f8c8d',
-        '#f1c40f', '#e91e63', '#673ab7', '#3f51b5', '#2196f3',
-        '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39',
-        '#ffeb3b', '#ffc107', '#ff9800', '#ff5722', '#795548'
-      ];
-      
-      // Create a simple hash from the userId
-      let hash = 0;
-      for (let i = 0; i < userId.length; i++) {
-        const char = userId.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32-bit integer
+    async handleRemoveReaction(reaction) {
+      // Remove reaction via backend API
+      try {
+        const userId = this.currentUserId;
+        await axios.delete(`/users/${userId}/messages/${this.message.id}/comments/${reaction.id}`);
+        // Refresh reactions: emit event or reload message
+        this.$emit('refreshMessage', this.message.id);
+        this.showReactionsModal = false;
+      } catch (err) {
+        alert('Failed to remove reaction.');
       }
-      
-      // Use the hash to pick a color
-      const colorIndex = Math.abs(hash) % colors.length;
-      return colors[colorIndex];
     }
   }
 }
@@ -270,6 +263,7 @@ export default {
 
 .message-sender {
   font-size: 0.75rem;
+  color: #6c757d;
   font-weight: 600;
   margin-bottom: 0.25rem;
   padding-left: 0.75rem;
@@ -391,9 +385,14 @@ export default {
   color: rgba(255, 255, 255, 0.8);
 }
 
+.status-icon.status-sent {
+  color: rgba(255, 255, 255, 0.5);
+  stroke-width: 2;
+}
+
 .status-icon.status-read {
   color: #00ff00;
-  stroke-width: 4;
+  stroke-width: 3;
 }
 
 /* Reactions */

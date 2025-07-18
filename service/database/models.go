@@ -33,6 +33,7 @@ type Conversation struct {
 	OtherParticipant *User     `json:"otherParticipant,omitempty"` // Per conversazioni dirette
 	LastMessage      *Message  `json:"lastMessage,omitempty"`
 	UnreadCount      int       `json:"unreadCount"`
+	IsReadByAll      bool      `json:"isReadByAll"` // Per conversazioni di gruppo
 	Messages         []Message `json:"messages,omitempty"`
 }
 
@@ -98,6 +99,7 @@ type ConversationPreview struct {
 	LastMessageAt time.Time       `json:"lastMessageAt"`
 	LastMessage   *MessagePreview `json:"lastMessage,omitempty"`
 	UnreadCount   int             `json:"unreadCount"`
+	IsReadByAll   bool            `json:"isReadByAll"` // Per conversazioni di gruppo
 
 	// For direct conversations only
 	OtherParticipant *struct {

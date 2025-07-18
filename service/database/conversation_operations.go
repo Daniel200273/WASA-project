@@ -147,6 +147,19 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 		}
 		conv.UnreadCount = unreadCount
 
+		// For group conversations, calculate if it's read by all members
+		if conv.Type == "group" {
+			isReadByAll, err := db.IsReadByAllGroupMembers(conv.ID, conv.LastMessageAt)
+			if err != nil {
+				// If there's an error, default to false
+				conv.IsReadByAll = false
+			} else {
+				conv.IsReadByAll = isReadByAll
+			}
+		} else {
+			conv.IsReadByAll = false
+		}
+
 		conversations = append(conversations, conv)
 	}
 
@@ -221,6 +234,29 @@ func (db *appdbimpl) GetConversation(conversationID, userID string) (*Conversati
 		unreadCount = 0
 	}
 	conv.UnreadCount = unreadCount
+
+	// For group conversations, calculate if it's read by all members
+	if conv.Type == "group" {
+		// Get the last message timestamp for this conversation
+		lastMessageQuery := `
+			SELECT MAX(created_at) FROM messages WHERE conversation_id = ?
+		`
+		var lastMessageTime time.Time
+		err = db.c.QueryRow(lastMessageQuery, conv.ID).Scan(&lastMessageTime)
+		if err == nil {
+			isReadByAll, err := db.IsReadByAllGroupMembers(conv.ID, lastMessageTime)
+			if err != nil {
+				// If there's an error, default to false
+				conv.IsReadByAll = false
+			} else {
+				conv.IsReadByAll = isReadByAll
+			}
+		} else {
+			conv.IsReadByAll = false
+		}
+	} else {
+		conv.IsReadByAll = false
+	}
 
 	return conv, nil
 }

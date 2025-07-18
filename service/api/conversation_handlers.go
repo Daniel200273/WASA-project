@@ -129,6 +129,7 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 			ID:          dbConv.ID,
 			Type:        dbConv.Type,
 			UnreadCount: dbConv.UnreadCount,
+			IsReadByAll: dbConv.IsReadByAll,
 		}
 
 		// Handle name - check if direct conversation and use other participant's name if available
@@ -256,6 +257,9 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	// Handle timestamps
 	response.CreatedAt = &conversationDetails.CreatedAt
 	response.LastMessageAt = &conversationDetails.LastMessageAt
+
+	// For group conversations, set IsReadByAll from conversation details
+	response.IsReadByAll = conversationDetails.IsReadByAll
 
 	// Convert participants to members format
 	response.Members = make([]UserResponse, len(conversationDetails.Participants))

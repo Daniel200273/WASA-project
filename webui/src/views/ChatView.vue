@@ -60,9 +60,19 @@
               <div class="conversation-info">
                 <div class="conversation-header">
                   <h4 class="conversation-name">{{ conversation.name }}</h4>
-                  <span v-if="conversation.lastMessage" class="conversation-time">
-                    {{ formatConversationTime(conversation.lastMessage.timestamp) }}
-                  </span>
+                  <div class="conversation-header-right">
+                    <span v-if="conversation.lastMessage" class="conversation-time">
+                      {{ formatConversationTime(conversation.lastMessage.timestamp) }}
+                    </span>
+                    <!-- Group read status indicator -->
+                    <div v-if="conversation.type === 'group' && conversation.isReadByAll && conversation.unreadCount === 0" 
+                         class="group-read-indicator" 
+                         title="Read by all members">
+                      <svg class="feather read-all-icon">
+                        <use href="/feather-sprite-v4.29.0.svg#check-circle" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <p v-if="conversation.lastMessage" class="last-message">
                   <span v-if="isLastMessageFromCurrentUser(conversation)" class="you-prefix">You: </span>
@@ -136,17 +146,18 @@
             <div v-else class="messages-list">
               <!-- Individual messages -->
               <div v-for="message in messages" :key="message.id" class="message-wrapper">
-                <MessageItem 
-                  :message="message"
-                  :is-own="message.senderId === currentUserId"
-                  :show-sender="shouldShowSender(message)"
-                  :is-group-chat="selectedConversation?.type === 'group'"
-                  :conversation-read-at="conversationReadAt"
-                  :all-messages="messages"
-                  @reply="replyToMessage"
-                  @react="reactToMessage"
-                  @delete="deleteMessage"
-                />
+            <MessageItem 
+              :message="message"
+              :is-own="message.senderId === currentUserId"
+              :show-sender="shouldShowSender(message)"
+              :is-group-chat="selectedConversation?.type === 'group'"
+              :conversation-read-at="conversationReadAt"
+              :all-messages="messages"
+              @reply="replyToMessage"
+              @react="reactToMessage"
+              @delete="deleteMessage"
+              @forward="forwardMessage"
+            />
               </div>
 
               <!-- Empty state -->
@@ -190,6 +201,12 @@
       @close="showUserSearch = false"
       @select-user="startConversationWithUser"
     />
+    <ForwardMessageModal
+      v-if="showForwardModal"
+      :conversations="conversations"
+      @confirm="confirmForward"
+      @cancel="cancelForward"
+    />
   </div>
 </template>
 
@@ -200,6 +217,7 @@ import LoadingSpinner from '../components/LoadingSpinner.vue';
 import MessageItem from '../components/chat/MessageItem.vue';
 import MessageInput from '../components/chat/MessageInput.vue';
 import UserSearchModal from '../components/modals/UserSearchModal.vue';
+import ForwardMessageModal from '../components/modals/ForwardMessageModal.vue';
 import { getConversationAvatar, getImageUrl } from '../utils/imageUtils.js';
 
 export default {
@@ -208,7 +226,8 @@ export default {
     LoadingSpinner,
     MessageItem,
     MessageInput,
-    UserSearchModal
+    UserSearchModal,
+    ForwardMessageModal
   },
   props: {
     conversationId: {
@@ -224,16 +243,20 @@ export default {
       selectedConversationId: null,
       selectedConversation: null,
       conversationReadAt: null,
-      
+
       // Messages
       messages: [],
       messagesLoading: false,
       sendingMessage: false,
-      
+
       // UI State
       showUserSearch: false,
       replyingTo: null,
-      
+
+      // Forward modal state
+      forwardingMessage: null,
+      showForwardModal: false,
+
       // Refresh state
       lastRefreshTime: null,
       refreshDebounceMs: 1000 // Prevent multiple refreshes within 1 second
@@ -273,17 +296,27 @@ export default {
     try {
       // Simple: just load conversations, the watcher will handle the rest
       await this.loadConversations();
-      
       // On desktop, auto-select first conversation if no specific one is requested
       if (!this.conversationId && this.conversations.length > 0 && window.innerWidth > 768) {
         this.$router.replace(`/chat/${this.conversations[0].id}`);
       }
+      // Auto-refresh polling
+      this._pollInterval = setInterval(() => {
+        if (this.selectedConversationId) {
+          this.refreshAll();
+        }
+      }, 3000); // 3 seconds
     } catch (error) {
       console.error('Initial load failed:', error);
       // Show a more user-friendly message for initial load failures
       if (error.code !== 'ECONNABORTED') {
         alert('Failed to load conversations. Please refresh the page or check your connection.');
       }
+    }
+  },
+  beforeUnmount() {
+    if (this._pollInterval) {
+      clearInterval(this._pollInterval);
     }
   },
   methods: {
@@ -628,6 +661,35 @@ export default {
       }
     },
 
+    // === FORWARD MESSAGE ===
+    async forwardMessage(message) {
+      // Open modal to select target conversation
+      this.forwardingMessage = message;
+      this.showForwardModal = true;
+    },
+
+    async confirmForward(targetConversationId) {
+      if (!this.forwardingMessage || !targetConversationId) return;
+      try {
+        const userId = AuthService.getUserId();
+        await axios.post(
+          `/users/${userId}/messages/${this.forwardingMessage.id}/forward`,
+          { conversationId: targetConversationId }
+        );
+        this.showForwardModal = false;
+        this.forwardingMessage = null;
+        alert('Message forwarded successfully!');
+      } catch (error) {
+        console.error('Error forwarding message:', error);
+        alert('Failed to forward message.');
+      }
+    },
+
+    cancelForward() {
+      this.showForwardModal = false;
+      this.forwardingMessage = null;
+    },
+
     // === REFRESH FUNCTIONALITY ===
     async refreshAll() {
       // Debounce rapid refresh calls
@@ -692,7 +754,7 @@ export default {
 
 <style scoped>
 .chat-view {
-  --top-nav-height: 48px;
+  --top-nav-height: 48px; /* Adjust this value to match your top navigation bar height */
   height: calc(100vh - var(--top-nav-height));
   width: 100%;
   overflow: hidden;
@@ -856,6 +918,24 @@ export default {
   color: #6c757d;
   flex-shrink: 0;
   margin-left: 0.5rem;
+}
+
+.conversation-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.group-read-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.read-all-icon {
+  width: 12px;
+  height: 12px;
+  color: #28a745;
+  stroke-width: 2;
 }
 
 .last-message,

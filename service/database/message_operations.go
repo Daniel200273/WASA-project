@@ -396,3 +396,46 @@ func (db *appdbimpl) MarkConversationAsRead(conversationID, userID string) error
 
 	return nil
 }
+
+// IsReadByAllGroupMembers checks if all members of a group conversation have read the conversation after its last message
+func (db *appdbimpl) IsReadByAllGroupMembers(conversationID string, lastMessageAt time.Time) (bool, error) {
+	// First, check if this is a group conversation
+	query := `SELECT type FROM conversations WHERE id = ?`
+	var conversationType string
+	err := db.c.QueryRow(query, conversationID).Scan(&conversationType)
+	if err != nil {
+		return false, fmt.Errorf("error checking conversation type: %w", err)
+	}
+
+	// If it's not a group conversation, return false
+	if conversationType != "group" {
+		return false, nil
+	}
+
+	// Check if all group members have a last_read_at timestamp after the last message timestamp
+	query = `
+		SELECT COUNT(*) as total_members,
+		       COUNT(CASE WHEN cp.last_read_at >= ? THEN 1 END) as members_read
+		FROM conversation_participants cp
+		WHERE cp.conversation_id = ?
+	`
+	var totalMembers, membersRead int
+	err = db.c.QueryRow(query, lastMessageAt, conversationID).Scan(&totalMembers, &membersRead)
+	if err != nil {
+		return false, fmt.Errorf("error checking group read status: %w", err)
+	}
+
+	// All members have read if members_read equals total_members
+	return totalMembers > 0 && membersRead == totalMembers, nil
+}
+
+// getConversationType is a helper method to get the type of a conversation
+func (db *appdbimpl) getConversationType(conversationID string) (string, error) {
+	query := `SELECT type FROM conversations WHERE id = ?`
+	var conversationType string
+	err := db.c.QueryRow(query, conversationID).Scan(&conversationType)
+	if err != nil {
+		return "", fmt.Errorf("error getting conversation type: %w", err)
+	}
+	return conversationType, nil
+}

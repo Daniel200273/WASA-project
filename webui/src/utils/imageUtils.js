@@ -14,7 +14,7 @@ export function getImageUrl(photoUrl, defaultImage = "/default-avatar.svg") {
   if (photoUrl.startsWith("http")) return photoUrl;
 
   // Build full URL with cache busting
-  const baseURL = axios.defaults.baseURL || "http://localhost:3000";
+  const baseURL = axios.defaults.baseURL || window.location.origin;
   const timestamp = Date.now();
   return `${baseURL}${photoUrl}?t=${timestamp}`;
 }

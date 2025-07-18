@@ -38,9 +38,6 @@ const closeGroupCreate = () => {
   showGroupCreate.value = false
 }
 </script>
-<script>
-export default {}
-</script>
 
 <template>
   <!-- Show full layout only when not on login page -->

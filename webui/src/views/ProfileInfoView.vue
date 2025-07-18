@@ -363,9 +363,12 @@ export default {
         } catch (error) {
           console.error('Error updating username:', error);
           console.error('Full error response:', error.response);
-          
+
           // Show more detailed error message
-          const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+          let errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+          if (errorMessage.toLowerCase().includes('already exists') || errorMessage.toLowerCase().includes('taken')) {
+            errorMessage = 'This username is already taken. Please choose another.';
+          }
           alert(`Failed to update username: ${errorMessage}`);
         }
       }

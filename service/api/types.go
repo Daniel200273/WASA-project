@@ -97,6 +97,7 @@ type ConversationResponse struct {
 	PhotoURL    *string         `json:"photoUrl,omitempty"`
 	LastMessage *MessagePreview `json:"lastMessage,omitempty"`
 	UnreadCount int             `json:"unreadCount"`
+	IsReadByAll bool            `json:"isReadByAll"` // For group conversations
 }
 
 // ConversationsResponse represents the list of user's conversations
@@ -137,6 +138,7 @@ type ConversationDetailResponse struct {
 	LastMessageAt *time.Time        `json:"lastMessageAt,omitempty"`
 	Members       []UserResponse    `json:"members"`
 	Messages      []MessageResponse `json:"messages"`
+	IsReadByAll   bool              `json:"isReadByAll"` // For group conversations
 }
 
 // GroupResponse represents a group with all details
