@@ -2,8 +2,10 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/Daniel200273/WASA-project/service/api/reqcontext"
+	"github.com/Daniel200273/WASA-project/service/database"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -198,7 +200,18 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 		return
 	}
 
-	// 4. Check if user is participant in the conversation
+	// 4. Parse query parameters for incremental loading
+	afterTimestamp := r.URL.Query().Get("after")
+	limitStr := r.URL.Query().Get("limit")
+
+	var limit int = 100 // Default limit
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 500 {
+			limit = parsedLimit
+		}
+	}
+
+	// 5. Check if user is participant in the conversation
 	if val, err := rt.db.IsUserInConversation(conversationID, ctx.UserID); !val && err == nil {
 		ctx.Logger.Error("User not authorized to access conversation", "userID", ctx.UserID, "conversationID", conversationID)
 		sendErrorResponse(w, http.StatusForbidden, "Unauthorized access to conversation", ctx)
@@ -209,21 +222,36 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 		return
 	}
 
-	// 5. Get conversation details (type, name, photo, members)
-	conversationDetails, err := rt.db.GetConversation(conversationID, ctx.UserID)
-	if err != nil {
-		ctx.Logger.WithError(err).Error("Failed to retrieve conversation details")
-		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve conversation details", ctx)
-		return
+	// 6. Get conversation details (type, name, photo, members) - only if not incremental loading
+	var conversationDetails *database.Conversation
+	var err error
+
+	if afterTimestamp == "" {
+		// Full conversation load
+		conversationDetails, err = rt.db.GetConversation(conversationID, ctx.UserID)
+		if err != nil {
+			ctx.Logger.WithError(err).Error("Failed to retrieve conversation details")
+			sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve conversation details", ctx)
+			return
+		}
+
+		// Mark conversation as read when user opens it
+		if err := rt.db.MarkConversationAsRead(conversationID, ctx.UserID); err != nil {
+			ctx.Logger.WithError(err).Warn("Failed to mark conversation as read") // Don't fail the request for this
+		}
 	}
 
-	// 6. Mark conversation as read when user opens it
-	if err := rt.db.MarkConversationAsRead(conversationID, ctx.UserID); err != nil {
-		ctx.Logger.WithError(err).Warn("Failed to mark conversation as read") // Don't fail the request for this
+	// 7. Get messages in conversation with sender info and read status
+	var messages []database.Message
+
+	if afterTimestamp != "" {
+		// Incremental loading - get messages after timestamp
+		messages, err = rt.db.GetConversationMessagesAfter(conversationID, ctx.UserID, afterTimestamp, limit)
+	} else {
+		// Full loading - get all messages (or latest messages up to limit)
+		messages, err = rt.db.GetConversationMessages(conversationID, ctx.UserID)
 	}
 
-	// 7. Get all messages in conversation with sender info and read status
-	messages, err := rt.db.GetConversationMessages(conversationID, ctx.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to retrieve conversation messages")
 		sendErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve messages", ctx)
@@ -232,42 +260,47 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 
 	// 8. Format response as JSON with conversation details and messages
 	response := ConversationDetailResponse{
-		ID:   conversationDetails.ID,
-		Type: conversationDetails.Type,
+		Messages: make([]MessageResponse, len(messages)),
 	}
 
-	// Handle conversation name - for direct conversations, use other participant's name
-	switch {
-	case conversationDetails.Type == ConversationTypeDirect && conversationDetails.OtherParticipant != nil:
-		response.Name = conversationDetails.OtherParticipant.Username
-	case conversationDetails.Name != nil:
-		response.Name = *conversationDetails.Name
-	default:
-		response.Name = ConversationTypeDefault // Fallback name
-	}
+	// Only include conversation details for full loads
+	if conversationDetails != nil {
+		response.ID = conversationDetails.ID
+		response.Type = conversationDetails.Type
 
-	// Handle photo URL - for direct conversations, use other participant's photo
-	switch {
-	case conversationDetails.Type == ConversationTypeDirect && conversationDetails.OtherParticipant != nil:
-		response.PhotoURL = conversationDetails.OtherParticipant.PhotoURL
-	default:
-		response.PhotoURL = conversationDetails.PhotoURL
-	}
+		// Handle conversation name - for direct conversations, use other participant's name
+		switch {
+		case conversationDetails.Type == ConversationTypeDirect && conversationDetails.OtherParticipant != nil:
+			response.Name = conversationDetails.OtherParticipant.Username
+		case conversationDetails.Name != nil:
+			response.Name = *conversationDetails.Name
+		default:
+			response.Name = ConversationTypeDefault // Fallback name
+		}
 
-	// Handle timestamps
-	response.CreatedAt = &conversationDetails.CreatedAt
-	response.LastMessageAt = &conversationDetails.LastMessageAt
+		// Handle photo URL - for direct conversations, use other participant's photo
+		switch {
+		case conversationDetails.Type == ConversationTypeDirect && conversationDetails.OtherParticipant != nil:
+			response.PhotoURL = conversationDetails.OtherParticipant.PhotoURL
+		default:
+			response.PhotoURL = conversationDetails.PhotoURL
+		}
 
-	// For group conversations, set IsReadByAll from conversation details
-	response.IsReadByAll = conversationDetails.IsReadByAll
+		// Handle timestamps
+		response.CreatedAt = &conversationDetails.CreatedAt
+		response.LastMessageAt = &conversationDetails.LastMessageAt
 
-	// Convert participants to members format
-	response.Members = make([]UserResponse, len(conversationDetails.Participants))
-	for i, participant := range conversationDetails.Participants {
-		response.Members[i] = UserResponse{
-			ID:       participant.ID,
-			Username: participant.Username,
-			PhotoURL: participant.PhotoURL,
+		// For group conversations, set IsReadByAll from conversation details
+		response.IsReadByAll = conversationDetails.IsReadByAll
+
+		// Convert participants to members format
+		response.Members = make([]UserResponse, len(conversationDetails.Participants))
+		for i, participant := range conversationDetails.Participants {
+			response.Members[i] = UserResponse{
+				ID:       participant.ID,
+				Username: participant.Username,
+				PhotoURL: participant.PhotoURL,
+			}
 		}
 	}
 

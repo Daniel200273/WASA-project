@@ -8,16 +8,6 @@
           <h3>Conversations</h3>
           <div class="header-actions">
             <button 
-              class="btn btn-sm btn-outline-secondary refresh-btn" 
-              :disabled="isRefreshing"
-              :title="isRefreshing ? 'Refreshing...' : 'Refresh all'"
-              @click="refreshAll"
-            >
-              <svg class="feather" :class="{ 'spinning': isRefreshing }">
-                <use href="/feather-sprite-v4.29.0.svg#refresh-cw" />
-              </svg>
-            </button>
-            <button 
               class="btn btn-sm btn-primary" 
               title="Start new chat"
               @click="showUserSearch = true"
@@ -64,14 +54,6 @@
                     <span v-if="conversation.lastMessage" class="conversation-time">
                       {{ formatConversationTime(conversation.lastMessage.timestamp) }}
                     </span>
-                    <!-- Group read status indicator -->
-                    <div v-if="conversation.type === 'group' && conversation.isReadByAll && conversation.unreadCount === 0" 
-                         class="group-read-indicator" 
-                         title="Read by all members">
-                      <svg class="feather read-all-icon">
-                        <use href="/feather-sprite-v4.29.0.svg#check-circle" />
-                      </svg>
-                    </div>
                   </div>
                 </div>
                 <p v-if="conversation.lastMessage" class="last-message">
@@ -119,16 +101,6 @@
             </div>
             <div class="chat-header-actions">
               <button 
-                class="btn btn-sm btn-outline-secondary refresh-btn" 
-                :disabled="isRefreshing"
-                :title="isRefreshing ? 'Refreshing...' : 'Refresh all'"
-                @click="refreshAll"
-              >
-                <svg class="feather" :class="{ 'spinning': isRefreshing }">
-                  <use href="/feather-sprite-v4.29.0.svg#refresh-cw" />
-                </svg>
-              </button>
-              <button 
                 class="btn btn-sm btn-outline-secondary" 
                 :title="selectedConversation.type === 'group' ? 'Group Info' : 'User Info'"
                 @click="goToConversationInfo"
@@ -157,6 +129,7 @@
               @react="reactToMessage"
               @delete="deleteMessage"
               @forward="forwardMessage"
+              @refresh-message="handleRefreshMessage"
             />
               </div>
 
@@ -207,6 +180,13 @@
       @confirm="confirmForward"
       @cancel="cancelForward"
     />
+    <NotificationModal
+      v-if="notificationModal.show"
+      :type="notificationModal.type"
+      :title="notificationModal.title"
+      :message="notificationModal.message"
+      @close="closeNotificationModal"
+    />
   </div>
 </template>
 
@@ -218,6 +198,7 @@ import MessageItem from '../components/chat/MessageItem.vue';
 import MessageInput from '../components/chat/MessageInput.vue';
 import UserSearchModal from '../components/modals/UserSearchModal.vue';
 import ForwardMessageModal from '../components/modals/ForwardMessageModal.vue';
+import NotificationModal from '../components/modals/NotificationModal.vue';
 import { getConversationAvatar, getImageUrl } from '../utils/imageUtils.js';
 
 export default {
@@ -227,7 +208,8 @@ export default {
     MessageItem,
     MessageInput,
     UserSearchModal,
-    ForwardMessageModal
+    ForwardMessageModal,
+    NotificationModal
   },
   props: {
     conversationId: {
@@ -237,6 +219,9 @@ export default {
   },
   data() {
     return {
+      // Component lifecycle
+      _isDestroyed: false,
+      
       // Conversations
       conversations: [],
       conversationsLoading: false,
@@ -256,10 +241,27 @@ export default {
       // Forward modal state
       forwardingMessage: null,
       showForwardModal: false,
+      
+      // Notification modal state
+      notificationModal: {
+        show: false,
+        type: 'info',
+        title: '',
+        message: ''
+      },
 
-      // Refresh state
-      lastRefreshTime: null,
-      refreshDebounceMs: 1000 // Prevent multiple refreshes within 1 second
+      // Smart polling state
+      pollingTimer: null,
+      pollingInterval: 10000, // Default 10 seconds
+      lastActivity: Date.now(),
+      isUserActive: true,
+      isTabVisible: true,
+      lastConversationsUpdate: null,
+      lastMessagesUpdate: null,
+      
+      // Activity tracking
+      updateActivity: null,
+      inactivityChecker: null
     }
   },
   computed: {
@@ -269,70 +271,114 @@ export default {
     currentUsername() {
       return AuthService.getUsername();
     },
-    isRefreshing() {
-      return this.conversationsLoading || this.messagesLoading;
+    // Smart polling computed properties
+    shouldPollFast() {
+      // Poll fast when user is active and in a conversation
+      return this.isUserActive && this.isTabVisible && this.selectedConversationId;
     },
-
+    optimalPollingInterval() {
+      if (!this.isTabVisible) {
+        return 60000; // 1 minute when tab is hidden
+      }
+      if (!this.isUserActive) {
+        return 30000; // 30 seconds when inactive
+      }
+      if (this.selectedConversationId) {
+        return 3000; // 3 seconds when in active chat
+      }
+      return 10000; // 10 seconds default
+    }
   },
   watch: {
     conversationId: {
       immediate: true,
       async handler(newId) {
-        if (newId) {
-          this.selectedConversationId = newId;
-          // Simple: just refresh everything to ensure consistency
-          await this.refreshAll();
-        } else {
-          // Clear selection when no conversation ID
-          this.selectedConversationId = null;
-          this.selectedConversation = null;
-          this.messages = [];
-          this.replyingTo = null;
+        try {
+          if (newId) {
+            this.selectedConversationId = newId;
+            // Load conversations and then the specific conversation
+            await this.loadConversations();
+            await this.loadConversationMessages(newId);
+            
+            // Reset polling timers when switching conversations
+            this.lastMessagesUpdate = Date.now();
+            if (this.restartPolling) {
+              this.restartPolling();
+            }
+          } else {
+            // Clear selection when no conversation ID
+            this.selectedConversationId = null;
+            this.selectedConversation = null;
+            this.messages = [];
+            this.replyingTo = null;
+          }
+        } catch (error) {
+          console.error('Error in conversation watcher:', error);
+        }
+      }
+    },
+    
+    // Watch for polling interval changes
+    optimalPollingInterval: {
+      handler(newInterval, oldInterval) {
+        try {
+          if (newInterval !== oldInterval && this.pollingTimer) {
+            console.log(`Polling interval changed: ${oldInterval}ms → ${newInterval}ms`);
+            this.restartPolling();
+          }
+        } catch (error) {
+          console.error('Error in polling interval watcher:', error);
         }
       }
     }
   },
   async mounted() {
     try {
+      // Request notification permission
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      
       // Simple: just load conversations, the watcher will handle the rest
       await this.loadConversations();
       // On desktop, auto-select first conversation if no specific one is requested
       if (!this.conversationId && this.conversations.length > 0 && window.innerWidth > 768) {
         this.$router.replace(`/chat/${this.conversations[0].id}`);
       }
-      // Auto-refresh polling
-      this._pollInterval = setInterval(() => {
-        if (this.selectedConversationId) {
-          this.refreshAll();
-        }
-      }, 3000); // 3 seconds
+      
+      // Initialize smart polling with error handling
+      try {
+        this.initializeSmartPolling();
+        this.startSmartPolling();
+      } catch (pollingError) {
+        console.error('Failed to initialize smart polling:', pollingError);
+        // Continue without polling if it fails
+      }
     } catch (error) {
       console.error('Initial load failed:', error);
-      // Show a more user-friendly message for initial load failures
-      if (error.code !== 'ECONNABORTED') {
-        alert('Failed to load conversations. Please refresh the page or check your connection.');
-      }
+      this.showNotification('error', 'Connection Error', 'Failed to load conversations. Please refresh the page or check your connection.');
     }
   },
   beforeUnmount() {
-    if (this._pollInterval) {
-      clearInterval(this._pollInterval);
-    }
+    this._isDestroyed = true; // Mark component as destroyed
+    this.stopSmartPolling();
+    this.removeActivityListeners();
   },
   methods: {
     // === CONVERSATION MANAGEMENT ===
     async loadConversations() {
+      if (this._isDestroyed) return;
+      
       try {
         this.conversationsLoading = true;
         
-        const result = await this.retryApiCall(async () => {
-          const userId = AuthService.getUserId();
-          return await axios.get(`/users/${userId}/conversations`, {
-            timeout: 5000 // 5 second timeout
-          });
-        });
+        const userId = AuthService.getUserId();
+        const response = await axios.get(`/users/${userId}/conversations`);
         
-        const newConversations = result.data.conversations || [];
+        // Check if component is still mounted before updating reactive data
+        if (this._isDestroyed) return;
+        
+        const newConversations = response.data.conversations || [];
         
         // Always update conversations
         this.conversations = newConversations;
@@ -345,8 +391,6 @@ export default {
         
       } catch (error) {
         console.error('Error loading conversations:', error);
-        
-        // Re-throw the error so the caller can handle it
         throw error;
       } finally {
         this.conversationsLoading = false;
@@ -359,20 +403,19 @@ export default {
     },
 
     async loadConversationMessages(conversationId) {
-      if (!conversationId) return;
+      if (!conversationId || this._isDestroyed) return;
       
       try {
         this.messagesLoading = true;
         
-        const result = await this.retryApiCall(async () => {
-          const userId = AuthService.getUserId();
-          return await axios.get(`/users/${userId}/conversations/${conversationId}`, {
-            timeout: 5000 // 5 second timeout
-          });
-        });
+        const userId = AuthService.getUserId();
+        const response = await axios.get(`/users/${userId}/conversations/${conversationId}`);
         
-        this.selectedConversation = result.data;
-        this.messages = result.data.messages || [];
+        // Check if component is still mounted before updating reactive data
+        if (this._isDestroyed) return;
+        
+        this.selectedConversation = response.data;
+        this.messages = response.data.messages || [];
         
         // Update the conversation in the sidebar list if needed
         const conversationIndex = this.conversations.findIndex(c => c.id === conversationId);
@@ -380,10 +423,10 @@ export default {
           // Update the conversation in place to maintain sidebar state
           this.conversations[conversationIndex] = {
             ...this.conversations[conversationIndex],
-            ...result.data,
-            // Keep the lastMessage and unreadCount from the list view
+            ...response.data,
+            // Keep the lastMessage from the list view but clear unreadCount since user is viewing it
             lastMessage: this.conversations[conversationIndex].lastMessage,
-            unreadCount: this.conversations[conversationIndex].unreadCount
+            unreadCount: 0 // Clear unread count when conversation is opened
           };
         }
         
@@ -397,6 +440,24 @@ export default {
       } catch (error) {
         console.error('Error loading messages:', error);
         
+        // Log more detailed error information for debugging
+        if (error.response) {
+          console.error('Response error:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data,
+            conversationId: conversationId
+          });
+        } else if (error.request) {
+          console.error('Request error:', {
+            message: error.message,
+            code: error.code,
+            conversationId: conversationId
+          });
+        } else {
+          console.error('Unknown error:', error.message);
+        }
+        
         if (error.response?.status === 404) {
           // Conversation not found, redirect back to chat list
           this.$router.push('/chat');
@@ -407,6 +468,311 @@ export default {
       } finally {
         this.messagesLoading = false;
       }
+    },
+
+    // === SMART POLLING SYSTEM ===
+    initializeSmartPolling() {
+      // Set up activity tracking
+      this.setupActivityListeners();
+      
+      // Set up visibility change detection
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+      
+      // Set initial timestamps
+      this.lastConversationsUpdate = Date.now();
+      this.lastMessagesUpdate = Date.now();
+    },
+
+    setupActivityListeners() {
+      if (this._isDestroyed) return;
+      
+      const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+      
+      this.updateActivity = () => {
+        if (this._isDestroyed) return;
+        this.lastActivity = Date.now();
+        this.isUserActive = true;
+      };
+      
+      // Add listeners for user activity
+      activityEvents.forEach(event => {
+        document.addEventListener(event, this.updateActivity, true);
+      });
+      
+      // Check for inactivity every 30 seconds
+      this.inactivityChecker = setInterval(() => {
+        if (this._isDestroyed) return;
+        
+        const now = Date.now();
+        const timeSinceActivity = now - this.lastActivity;
+        
+        // Consider user inactive after 2 minutes of no activity
+        this.isUserActive = timeSinceActivity < 120000;
+      }, 30000);
+    },
+
+    removeActivityListeners() {
+      const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+      
+      if (this.updateActivity) {
+        activityEvents.forEach(event => {
+          document.removeEventListener(event, this.updateActivity, true);
+        });
+      }
+      
+      if (this.inactivityChecker) {
+        clearInterval(this.inactivityChecker);
+        this.inactivityChecker = null;
+      }
+      
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    },
+
+    handleVisibilityChange() {
+      if (this._isDestroyed) return;
+      
+      this.isTabVisible = !document.hidden;
+      
+      if (this.isTabVisible) {
+        // Tab became visible, restart polling immediately
+        this.lastActivity = Date.now();
+        this.isUserActive = true;
+        this.restartPolling();
+      }
+    },
+
+    startSmartPolling() {
+      this.stopSmartPolling(); // Clear any existing timer
+      this.scheduleNextPoll();
+    },
+
+    stopSmartPolling() {
+      if (this.pollingTimer) {
+        clearTimeout(this.pollingTimer);
+        this.pollingTimer = null;
+      }
+    },
+
+    restartPolling() {
+      this.stopSmartPolling();
+      this.scheduleNextPoll();
+    },
+
+    scheduleNextPoll() {
+      if (this._isDestroyed) return;
+      
+      const interval = this.optimalPollingInterval;
+      
+      this.pollingTimer = setTimeout(async () => {
+        try {
+          await this.performSmartPoll();
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+        
+        // Schedule next poll
+        this.scheduleNextPoll();
+      }, interval);
+    },
+
+    async performSmartPoll() {
+      if (this._isDestroyed || this.conversationsLoading || this.messagesLoading) {
+        return;
+      }
+
+      const now = Date.now();
+      
+      try {
+        // Always check for conversation updates (but less frequently when inactive)
+        const shouldUpdateConversations = 
+          (now - this.lastConversationsUpdate) > (this.isTabVisible ? 15000 : 60000);
+        
+        if (shouldUpdateConversations) {
+          await this.loadConversationsQuietly();
+          this.lastConversationsUpdate = now;
+        }
+        
+        // Check for new messages in active conversation
+        if (this.selectedConversationId) {
+          const shouldUpdateMessages = 
+            (now - this.lastMessagesUpdate) > (this.shouldPollFast ? 3000 : 15000);
+          
+          if (shouldUpdateMessages) {
+            await this.loadNewMessages();
+            this.lastMessagesUpdate = now;
+          }
+        }
+      } catch (error) {
+        console.error('Smart polling error:', error);
+      }
+    },
+
+    async loadConversationsQuietly() {
+      // Load conversations without showing loading state
+      try {
+        const userId = AuthService.getUserId();
+        const response = await axios.get(`/users/${userId}/conversations`);
+        
+        if (this._isDestroyed) return;
+        
+        const newConversations = response.data.conversations || [];
+        
+        // Check if there are any meaningful changes
+        if (this.hasConversationChanges(newConversations)) {
+          this.conversations = newConversations;
+        }
+        
+      } catch (error) {
+        console.error('Error in quiet conversations refresh:', error);
+      }
+    },
+
+    async loadNewMessages() {
+      if (!this.selectedConversationId || this._isDestroyed) return;
+      
+      try {
+        // Store current message count and scroll position for comparison
+        const currentMessageCount = this.messages.length;
+        const wasAtBottom = this.isAtBottom();
+        
+        const userId = AuthService.getUserId();
+        
+        // Get the full conversation to check for new messages
+        // This is more reliable than incremental loading
+        const response = await axios.get(`/users/${userId}/conversations/${this.selectedConversationId}`);
+        
+        if (this._isDestroyed) return;
+        
+        const freshMessages = response.data.messages || [];
+        
+        // Debug logging to understand what's happening
+        console.log('Polling for new messages:', {
+          conversationId: this.selectedConversationId,
+          currentMessageCount: currentMessageCount,
+          freshMessageCount: freshMessages.length,
+          hasNewMessages: freshMessages.length > currentMessageCount
+        });
+        
+        // Check if there are new messages
+        if (freshMessages.length > currentMessageCount) {
+          console.log('New messages detected, updating chat view');
+          
+          // Update messages array with fresh data
+          this.messages = freshMessages;
+          
+          // Clear unread count since user is viewing the conversation
+          const conversation = this.conversations.find(c => c.id === this.selectedConversationId);
+          if (conversation) {
+            conversation.unreadCount = 0;
+          }
+          
+          // Get new messages for notifications (only messages from others)
+          const newMessages = freshMessages.slice(currentMessageCount);
+          const messagesFromOthers = newMessages.filter(m => m.senderId !== this.currentUserId);
+          
+          // Show notification if tab is hidden and there are new messages from others
+          if (!this.isTabVisible && messagesFromOthers.length > 0) {
+            this.showNewMessageNotification(messagesFromOthers);
+          }
+          
+          // Update conversation in sidebar with the latest message
+          if (newMessages.length > 0) {
+            this.updateConversationFromNewMessages(newMessages);
+          }
+          
+          // Scroll to bottom if user was at bottom before the update
+          this.$nextTick(() => {
+            if (wasAtBottom) {
+              this.scrollToBottom();
+            }
+          });
+          
+          console.log(`Added ${freshMessages.length - currentMessageCount} new messages to chat`);
+        } else if (freshMessages.length < currentMessageCount) {
+          // Messages were deleted, update the entire view
+          console.log('Messages were deleted, refreshing chat view');
+          this.messages = freshMessages;
+        }
+        
+      } catch (error) {
+        console.error('Error loading new messages:', error);
+        
+        // If the conversation was deleted or access was revoked, redirect
+        if (error.response?.status === 404 || error.response?.status === 403) {
+          console.warn('Conversation no longer accessible, redirecting to chat list');
+          this.$router.push('/chat');
+        }
+      }
+    },
+
+    hasConversationChanges(newConversations) {
+      if (newConversations.length !== this.conversations.length) {
+        return true;
+      }
+      
+      // Check for changes in last message timestamps or unread counts
+      for (let i = 0; i < newConversations.length; i++) {
+        const oldConv = this.conversations[i];
+        const newConv = newConversations[i];
+        
+        if (!oldConv || 
+            oldConv.lastMessageAt !== newConv.lastMessageAt ||
+            oldConv.unreadCount !== newConv.unreadCount) {
+          return true;
+        }
+      }
+      
+      return false;
+    },
+
+    updateConversationFromNewMessages(newMessages) {
+      if (newMessages.length === 0) return;
+      
+      const latestMessage = newMessages[newMessages.length - 1];
+      const conversation = this.conversations.find(c => c.id === this.selectedConversationId);
+      
+      if (conversation) {
+        conversation.lastMessage = {
+          id: latestMessage.id,
+          content: latestMessage.content,
+          timestamp: latestMessage.timestamp,
+          senderId: latestMessage.senderId,
+          senderUsername: latestMessage.senderUsername
+        };
+        
+        // Update unread count for messages from others
+        const messagesFromOthers = newMessages.filter(m => m.senderId !== this.currentUserId);
+        if (messagesFromOthers.length > 0 && !this.isTabVisible) {
+          conversation.unreadCount = (conversation.unreadCount || 0) + messagesFromOthers.length;
+        }
+      }
+    },
+
+    showNewMessageNotification(newMessages) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const messagesFromOthers = newMessages.filter(m => m.senderId !== this.currentUserId);
+        
+        if (messagesFromOthers.length > 0) {
+          const latestMessage = messagesFromOthers[messagesFromOthers.length - 1];
+          const title = this.selectedConversation?.name || 'New Message';
+          const body = latestMessage.content || 'Photo';
+          
+          new Notification(title, {
+            body: `${latestMessage.senderUsername}: ${body}`,
+            icon: '/favicon.ico',
+            tag: `message-${this.selectedConversationId}` // Prevent duplicate notifications
+          });
+        }
+      }
+    },
+
+    isAtBottom() {
+      if (!this.$refs || !this.$refs.messagesContainer) return true;
+      
+      const container = this.$refs.messagesContainer;
+      const threshold = 100; // 100px threshold
+      
+      return (container.scrollHeight - container.scrollTop - container.clientHeight) < threshold;
     },
 
     // === MESSAGE HANDLING ===
@@ -452,13 +818,19 @@ export default {
         // Update read timestamp since sender is actively in the conversation
         this.conversationReadAt = new Date().toISOString();
         
+        // Reset polling timers after sending a message
+        this.lastMessagesUpdate = Date.now();
+        this.lastConversationsUpdate = Date.now();
+        this.lastActivity = Date.now();
+        this.isUserActive = true;
+        
         this.$nextTick(() => {
           this.scrollToBottom();
         });
         
       } catch (error) {
         console.error('Error sending message:', error);
-        alert('Failed to send message. Please try again.');
+        this.showNotification('error', 'Send Failed', 'Failed to send message. Please try again.');
       } finally {
         this.sendingMessage = false;
       }
@@ -475,11 +847,14 @@ export default {
         const userId = AuthService.getUserId();
         await axios.delete(`/users/${userId}/messages/${message.id}`);
         
-        // Remove from local state
-        this.messages = this.messages.filter(m => m.id !== message.id);
+        // Only update state if component is still mounted
+        if (!this._isDestroyed) {
+          // Remove from local state
+          this.messages = this.messages.filter(m => m.id !== message.id);
+        }
       } catch (error) {
         console.error('Error deleting message:', error);
-        alert('Failed to delete message');
+        this.showNotification('error', 'Delete Failed', 'Failed to delete message. Please try again.');
       }
     },
 
@@ -490,10 +865,25 @@ export default {
           emoticon
         });
         
-        // Refresh messages to show new reaction
-        await this.loadConversationMessages(this.selectedConversationId);
+        // Only refresh if component is still mounted
+        if (!this._isDestroyed && this.selectedConversationId) {
+          // Refresh messages to show new reaction
+          await this.loadConversationMessages(this.selectedConversationId);
+        }
       } catch (error) {
         console.error('Error reacting to message:', error);
+        this.showNotification('error', 'Reaction Failed', 'Failed to add reaction. Please try again.');
+      }
+    },
+
+    async handleRefreshMessage(messageId) {
+      // Refresh the conversation messages to update reactions
+      if (!this._isDestroyed && this.selectedConversationId) {
+        try {
+          await this.loadConversationMessages(this.selectedConversationId);
+        } catch (error) {
+          console.error('Error refreshing message:', error);
+        }
       }
     },
 
@@ -618,8 +1008,6 @@ export default {
         
         const response = await axios.post(`/users/${userId}/conversations`, {
           userId: user.id
-        }, {
-          timeout: 10000 // 10 second timeout for conversation creation
         });
         
         // Create conversation object for the list
@@ -657,7 +1045,7 @@ export default {
         
       } catch (error) {
         console.error('Error starting conversation:', error);
-        alert('Failed to start conversation. Please try again.');
+        this.showNotification('error', 'Conversation Failed', 'Failed to start conversation. Please try again.');
       }
     },
 
@@ -678,10 +1066,10 @@ export default {
         );
         this.showForwardModal = false;
         this.forwardingMessage = null;
-        alert('Message forwarded successfully!');
+        this.showNotification('success', 'Message Forwarded', 'Message forwarded successfully!');
       } catch (error) {
         console.error('Error forwarding message:', error);
-        alert('Failed to forward message.');
+        this.showNotification('error', 'Forward Failed', 'Failed to forward message.');
       }
     },
 
@@ -690,64 +1078,19 @@ export default {
       this.forwardingMessage = null;
     },
 
-    // === REFRESH FUNCTIONALITY ===
-    async refreshAll() {
-      // Debounce rapid refresh calls
-      const now = Date.now();
-      if (this.lastRefreshTime && (now - this.lastRefreshTime) < this.refreshDebounceMs) {
-        return;
-      }
-      
-      // Prevent multiple simultaneous refreshes
-      if (this.conversationsLoading || this.messagesLoading) {
-        return;
-      }
-      
-      this.lastRefreshTime = now;
-      
-      try {
-        // Always refresh conversations
-        await this.loadConversations();
-        
-        // If we have a selected conversation ID, update the UI and load messages
-        if (this.selectedConversationId) {
-          const conversation = this.conversations.find(c => c.id === this.selectedConversationId);
-          if (conversation) {
-            this.selectedConversation = conversation;
-            this.conversationReadAt = new Date().toISOString();
-            this.replyingTo = null; // Clear any reply state
-            if (conversation.unreadCount > 0) {
-              conversation.unreadCount = 0;
-            }
-          }
-          await this.loadConversationMessages(this.selectedConversationId);
-        }
-      } catch (error) {
-        console.error('Refresh failed:', error);
-        // Don't show alert for timeout/network errors, just log them
-        if (error.code !== 'ECONNABORTED' && error.code !== 'NETWORK_ERROR') {
-          alert('Failed to refresh. Please check your connection and try again.');
-        }
-      }
+    // === NOTIFICATION MODAL ===
+    showNotification(type, title, message) {
+      this.notificationModal = {
+        show: true,
+        type,
+        title,
+        message
+      };
     },
 
-    // === ERROR HANDLING ===
-    async retryApiCall(apiCall, maxRetries = 2, delay = 500) {
-      for (let i = 0; i < maxRetries; i++) {
-        try {
-          return await apiCall();
-        } catch (error) {
-          // If it's a database lock error, wait a bit but not too long
-          if (error.response?.status === 500 && error.response?.data?.includes?.('database is locked')) {
-            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
-          } else if (i === maxRetries - 1) {
-            throw error; // Re-throw if it's the last attempt
-          } else {
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        }
-      }
-    },
+    closeNotificationModal() {
+      this.notificationModal.show = false;
+    }
   }
 }
 </script>
@@ -799,25 +1142,6 @@ export default {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-}
-
-.refresh-btn {
-  min-width: 32px;
-  justify-content: center;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 .conversations-content {
@@ -924,18 +1248,6 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-}
-
-.group-read-indicator {
-  display: flex;
-  align-items: center;
-}
-
-.read-all-icon {
-  width: 12px;
-  height: 12px;
-  color: #28a745;
-  stroke-width: 2;
 }
 
 .last-message,

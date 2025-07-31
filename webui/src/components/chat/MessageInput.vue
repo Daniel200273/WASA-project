@@ -190,7 +190,7 @@ export default {
 
 .input-container {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.5rem;
   background-color: #f8f9fa;
   border-radius: 24px;

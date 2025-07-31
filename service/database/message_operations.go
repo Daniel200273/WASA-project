@@ -296,39 +296,143 @@ func (db *appdbimpl) calculateMessageStatus(msg Message, conversationID, current
 		return MessageStatusSent
 	}
 
-	// For messages sent by the current user, check if other participants have read them
-	// Get the last_read_at timestamps of other participants
-	query := `
-		SELECT MAX(last_read_at) as max_read_at
-		FROM conversation_participants 
-		WHERE conversation_id = ? AND user_id != ?
-	`
-
-	var maxReadAtStr *string
-	err := db.c.QueryRow(query, conversationID, currentUserID).Scan(&maxReadAtStr)
-	if err != nil {
-		// If there's an error or no data, default to "sent"
-		return MessageStatusSent
-	}
-
-	// If no one has read anything yet, or maxReadAtStr is nil
-	if maxReadAtStr == nil || *maxReadAtStr == "" {
-		return MessageStatusSent
-	}
-
-	// Parse the timestamp string
-	maxReadAt, err := time.Parse("2006-01-02 15:04:05", *maxReadAtStr)
+	// For messages sent by the current user, check if all other participants have read them
+	// First, get the conversation type to handle group vs direct differently
+	conversationType, err := db.getConversationType(conversationID)
 	if err != nil {
 		return MessageStatusSent
 	}
 
-	// If the other participants' latest read time is after this message was created, it's been read
-	if maxReadAt.After(msg.CreatedAt) || maxReadAt.Equal(msg.CreatedAt) {
-		return "read"
+	if conversationType == "group" {
+		// For group chats, check if ALL members (except sender) have read the message
+		// First, let's get the total count of active participants (excluding sender)
+		totalQuery := `
+			SELECT COUNT(*)
+			FROM conversation_participants cp
+			WHERE cp.conversation_id = ? AND cp.user_id != ?
+		`
+
+		var totalOthers int
+		err := db.c.QueryRow(totalQuery, conversationID, currentUserID).Scan(&totalOthers)
+		if err != nil || totalOthers == 0 {
+			return MessageStatusSent
+		}
+
+		// Now check how many have read the message after it was created
+		readQuery := `
+			SELECT COUNT(*)
+			FROM conversation_participants cp
+			WHERE cp.conversation_id = ? 
+			  AND cp.user_id != ? 
+			  AND cp.last_read_at IS NOT NULL 
+			  AND cp.last_read_at > ?
+		`
+
+		var othersRead int
+		err = db.c.QueryRow(readQuery, conversationID, currentUserID, msg.CreatedAt.Format("2006-01-02 15:04:05")).Scan(&othersRead)
+		if err != nil {
+			return MessageStatusSent
+		}
+
+		// If all other participants have read the message, show double check
+		if othersRead == totalOthers {
+			return "read"
+		}
+	} else {
+		// For direct messages, use the original logic (check if the other person has read)
+		query := `
+			SELECT MAX(last_read_at) as max_read_at
+			FROM conversation_participants 
+			WHERE conversation_id = ? AND user_id != ?
+		`
+
+		var maxReadAtStr *string
+		err := db.c.QueryRow(query, conversationID, currentUserID).Scan(&maxReadAtStr)
+		if err != nil {
+			return MessageStatusSent
+		}
+
+		// If no one has read anything yet, or maxReadAtStr is nil
+		if maxReadAtStr == nil || *maxReadAtStr == "" {
+			return MessageStatusSent
+		}
+
+		// Parse the timestamp string
+		maxReadAt, err := time.Parse("2006-01-02 15:04:05", *maxReadAtStr)
+		if err != nil {
+			return MessageStatusSent
+		}
+
+		// If the other participant's read time is after this message was created, it's been read
+		if maxReadAt.After(msg.CreatedAt) {
+			return "read"
+		}
 	}
 
 	// Otherwise, it's just been sent
 	return MessageStatusSent
+}
+
+// GetConversationMessagesAfter retrieves messages in a conversation created after a specific timestamp
+func (db *appdbimpl) GetConversationMessagesAfter(conversationID, currentUserID, afterTimestamp string, limit int) ([]Message, error) {
+	// Parse the afterTimestamp to validate it
+	_, err := time.Parse(time.RFC3339, afterTimestamp)
+	if err != nil {
+		return nil, fmt.Errorf("invalid timestamp format: %w", err)
+	}
+
+	// Query to get messages created after the specified timestamp
+	query := `
+		SELECT m.id, m.conversation_id, m.sender_id, u.username, m.content, 
+			   m.photo_url, m.reply_to_id, m.forwarded, m.created_at
+		FROM messages m
+		JOIN users u ON m.sender_id = u.id
+		WHERE m.conversation_id = ? AND m.created_at > ?
+		ORDER BY m.created_at ASC
+		LIMIT ?
+	`
+
+	rows, err := db.c.Query(query, conversationID, afterTimestamp, limit)
+	if err != nil {
+		return nil, fmt.Errorf("error querying conversation messages after timestamp: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []Message
+	for rows.Next() {
+		var msg Message
+		err := rows.Scan(
+			&msg.ID,
+			&msg.ConversationID,
+			&msg.SenderID,
+			&msg.SenderUsername,
+			&msg.Content,
+			&msg.PhotoURL,
+			&msg.ReplyToID,
+			&msg.Forwarded,
+			&msg.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning message: %w", err)
+		}
+
+		// Determine message status based on read receipts
+		msg.Status = db.calculateMessageStatus(msg, conversationID, currentUserID)
+
+		// Get reactions/comments for this message
+		msg.Comments, err = db.getMessageReactions(msg.ID)
+		if err != nil {
+			return nil, fmt.Errorf("error getting message reactions: %w", err)
+		}
+
+		messages = append(messages, msg)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over messages: %w", err)
+	}
+
+	return messages, nil
 }
 
 // getMessageReactions retrieves all reactions for a specific message

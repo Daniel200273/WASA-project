@@ -39,10 +39,16 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 	}
 
 	// 5. Check if new username is already taken
-	_, err := rt.db.GetUserByUsername(req.Name)
+	existingUser, err := rt.db.GetUserByUsername(req.Name)
 	if err != nil && err.Error() != "user not found" {
 		ctx.Logger.Error("Failed to check existing username", "error", err)
 		sendErrorResponse(w, http.StatusInternalServerError, "Internal server error", ctx)
+		return
+	}
+
+	// If we found a user with this username and it's not the current user, it's taken
+	if err == nil && existingUser.ID != ctx.UserID {
+		sendErrorResponse(w, http.StatusConflict, "Username already exists", ctx)
 		return
 	}
 

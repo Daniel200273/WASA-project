@@ -9,15 +9,13 @@
         <div class="modal-body">
           <p>Select a conversation to forward this message to:</p>
           <ul class="list-group" style="padding:0;list-style:none;">
-            <li v-for="conv in conversations" :key="conv.id" class="list-group-item" style="margin-bottom:0.5rem;">
-              <button class="btn btn-sm btn-outline-primary" @click="$emit('confirm', conv.id)">
-                {{ conv.name }}
+            <li v-for="conv in conversations" :key="conv.id" class="list-group-item" style="margin-bottom:0.5rem;display:flex;align-items:center;justify-content:space-between;padding:0.5rem;border:1px solid #dee2e6;border-radius:4px;">
+              <span style="font-weight:500;">{{ conv.name }}</span>
+              <button class="btn btn-sm btn-primary" @click="$emit('confirm', conv.id)" style="padding:0.25rem 0.75rem;">
+                Forward
               </button>
             </li>
           </ul>
-        </div>
-        <div class="modal-footer" style="text-align:right;">
-          <button class="btn btn-secondary" @click="$emit('cancel')">Cancel</button>
         </div>
       </div>
     </div>

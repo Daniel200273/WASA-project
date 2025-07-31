@@ -159,6 +159,31 @@
         </div>
       </div>
     </div>
+    
+    <!-- Modals -->
+    <NotificationModal
+      v-if="notificationModal.show"
+      :type="notificationModal.type"
+      :title="notificationModal.title"
+      :message="notificationModal.message"
+      @close="closeNotificationModal"
+    />
+    <ConfirmationModal
+      v-if="confirmationModal.show"
+      :title="confirmationModal.title"
+      :message="confirmationModal.message"
+      @confirm="confirmAction"
+      @cancel="cancelConfirmation"
+    />
+    <InputModal
+      v-if="inputModal.show"
+      :title="inputModal.title"
+      :message="inputModal.message"
+      :placeholder="inputModal.placeholder"
+      :default-value="inputModal.defaultValue"
+      @confirm="inputConfirm"
+      @cancel="cancelInput"
+    />
   </div>
 </template>
 
@@ -166,12 +191,18 @@
 import AuthService from '../services/auth.js';
 import axios from '../services/axios.js';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
-import { getImageUrl } from '../utils/imageUtils.js';
+import NotificationModal from '../components/modals/NotificationModal.vue';
+import ConfirmationModal from '../components/modals/ConfirmationModal.vue';
+import InputModal from '../components/modals/InputModal.vue';
+import { getImageUrl, clearImageCache } from '../utils/imageUtils.js';
 
 export default {
   name: 'ProfileInfoView',
   components: {
-    LoadingSpinner
+    LoadingSpinner,
+    NotificationModal,
+    ConfirmationModal,
+    InputModal
   },
   props: {
     type: {
@@ -188,7 +219,33 @@ export default {
       userData: null,
       groupData: null,
       isLoading: false,
-      error: null // Add error state
+      error: null, // Add error state
+      
+      // Notification modal state
+      notificationModal: {
+        show: false,
+        type: 'info',
+        title: '',
+        message: ''
+      },
+      
+      // Confirmation modal state  
+      confirmationModal: {
+        show: false,
+        title: '',
+        message: '',
+        confirmCallback: null
+      },
+      
+      // Input modal state
+      inputModal: {
+        show: false,
+        title: '',
+        message: '',
+        placeholder: '',
+        defaultValue: '',
+        confirmCallback: null
+      }
     }
   },
   computed: {
@@ -341,37 +398,65 @@ export default {
 
     async changeUsername() {
       // Open modal to change username
-      const newUsername = prompt('Enter new username:', this.currentUsername);
-      if (newUsername && newUsername.trim()) {
-        try {
-          // Make API call to update username using user ID
-          const userId = AuthService.getUserId();
-          if (!userId) {
-            console.error('Could not get current user ID');
-            return;
-          }
-          
-          await axios.put(`/users/${userId}/username`, { 
-            name: newUsername 
-          });
-          
-          // Update auth service with new username
-          AuthService.setAuthData(AuthService.getAuthToken(), newUsername, userId);
-          
-          // Reload user data to get the updated username
-          await this.loadUser();
-        } catch (error) {
-          console.error('Error updating username:', error);
-          console.error('Full error response:', error.response);
+      this.showInput(
+        'Change Username',
+        'Enter your new username:',
+        'Username',
+        this.currentUsername,
+        async (newUsername) => {
+          if (newUsername && newUsername.trim()) {
+            try {
+              // Make API call to update username using user ID
+              const userId = AuthService.getUserId();
+              if (!userId) {
+                console.error('Could not get current user ID');
+                return;
+              }
+              
+              await axios.put(`/users/${userId}/username`, { 
+                name: newUsername 
+              });
+              
+              // Update auth service with new username
+              AuthService.setAuthData(AuthService.getAuthToken(), newUsername, userId);
+              
+              // Reload user data to get the updated username
+              await this.loadUser();
+              
+              this.showNotification('success', 'Success', 'Username updated successfully!');
+            } catch (error) {
+              console.error('Error updating username:', error);
+              console.error('Full error response:', error.response);
 
-          // Show more detailed error message
-          let errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-          if (errorMessage.toLowerCase().includes('already exists') || errorMessage.toLowerCase().includes('taken')) {
-            errorMessage = 'This username is already taken. Please choose another.';
+              // Show more detailed error message based on status code and message
+              let errorMessage = 'Unknown error occurred';
+              
+              if (error.response) {
+                const status = error.response.status;
+                const responseMessage = error.response.data?.message || error.response.data || '';
+                
+                if (status === 409 || responseMessage.toLowerCase().includes('already exists') || responseMessage.toLowerCase().includes('username already exists')) {
+                  errorMessage = 'This username is already taken. Please choose another one.';
+                } else if (status === 400) {
+                  errorMessage = 'Invalid username format. Please choose a different username.';
+                } else if (status === 403) {
+                  errorMessage = 'You do not have permission to change this username.';
+                } else if (status >= 500) {
+                  errorMessage = 'Server error occurred. Please try again later.';
+                } else {
+                  errorMessage = responseMessage || `Request failed with status ${status}`;
+                }
+              } else if (error.request) {
+                errorMessage = 'Network error. Please check your connection and try again.';
+              } else {
+                errorMessage = error.message || 'Unknown error occurred';
+              }
+              
+              this.showNotification('error', 'Username Update Failed', `Failed to update username: ${errorMessage}`);
+            }
           }
-          alert(`Failed to update username: ${errorMessage}`);
         }
-      }
+      );
     },
     async changeProfilePicture() {
       // Create file input
@@ -396,6 +481,11 @@ export default {
           
           await axios.put(`/users/${userId}/photo`, formData);
           
+          // Clear the image cache for the old photo URL to force refresh
+          if (this.userData?.photoUrl) {
+            clearImageCache(this.userData.photoUrl);
+          }
+          
           // Reload user data to get the new photo URL
           await this.loadUser();
         } catch (error) {
@@ -417,27 +507,36 @@ export default {
     async changeGroupName() {
       if (!this.groupData?.name) return;
       
-      const newName = prompt('Enter new group name:', this.groupData.name);
-      if (newName && newName.trim()) {
-        try {
-          const userId = AuthService.getUserId();
-          if (!userId) {
-            console.error('Could not get current user ID');
-            return;
+      this.showInput(
+        'Change Group Name',
+        'Enter the new group name:',
+        'Group name',
+        this.groupData.name,
+        async (newName) => {
+          if (newName && newName.trim()) {
+            try {
+              const userId = AuthService.getUserId();
+              if (!userId) {
+                console.error('Could not get current user ID');
+                return;
+              }
+              
+              await axios.put(`/users/${userId}/groups/${this.id}/name`, { 
+                name: newName.trim() 
+              });
+              
+              // Reload group data to show new name
+              await this.loadGroup();
+              
+              this.showNotification('success', 'Success', 'Group name updated successfully!');
+            } catch (error) {
+              console.error('Error updating group name:', error);
+              const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+              this.showNotification('error', 'Group Name Update Failed', `Failed to update group name: ${errorMessage}`);
+            }
           }
-          
-          await axios.put(`/users/${userId}/groups/${this.id}/name`, { 
-            name: newName.trim() 
-          });
-          
-          // Reload group data to show new name
-          await this.loadGroup();
-        } catch (error) {
-          console.error('Error updating group name:', error);
-          const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-          alert(`Failed to update group name: ${errorMessage}`);
         }
-      }
+      );
     },
 
     async changeGroupPicture() {
@@ -467,7 +566,7 @@ export default {
         } catch (error) {
           console.error('Error updating group picture:', error);
           const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-          alert(`Failed to update group picture: ${errorMessage}`);
+          this.showNotification('error', 'Group Picture Update Failed', `Failed to update group picture: ${errorMessage}`);
         }
       };
       
@@ -475,86 +574,159 @@ export default {
     },
 
     async addMember() {
-      const username = prompt('Enter username to add:');
-      if (username && username.trim()) {
-        try {
-          const userId = AuthService.getUserId();
-          if (!userId) {
-            console.error('Could not get current user ID');
-            return;
+      this.showInput(
+        'Add Member',
+        'Enter the username of the person you want to add:',
+        'Username',
+        '',
+        async (username) => {
+          if (username && username.trim()) {
+            try {
+              const userId = AuthService.getUserId();
+              if (!userId) {
+                console.error('Could not get current user ID');
+                return;
+              }
+              
+              // First, search for the user to get their ID
+              const searchResponse = await axios.get(`/users?q=${encodeURIComponent(username.trim())}`);
+              const users = searchResponse.data.users || [];
+              
+              // Find exact username match
+              const targetUser = users.find(user => user.username === username.trim());
+              if (!targetUser) {
+                this.showNotification('error', 'User Not Found', 'User not found');
+                return;
+              }
+              
+              // Now add the user using their ID
+              await axios.post(`/users/${userId}/groups/${this.id}/members`, { 
+                userId: targetUser.id 
+              });
+              
+              // Reload group data to show new member
+              await this.loadGroup();
+              
+              this.showNotification('success', 'Success', `${username.trim()} has been added to the group!`);
+            } catch (error) {
+              console.error('Error adding member:', error);
+              const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+              this.showNotification('error', 'Add Member Failed', `Failed to add member: ${errorMessage}`);
+            }
           }
-          
-          // First, search for the user to get their ID
-          const searchResponse = await axios.get(`/users?q=${encodeURIComponent(username.trim())}`);
-          const users = searchResponse.data.users || [];
-          
-          // Find exact username match
-          const targetUser = users.find(user => user.username === username.trim());
-          if (!targetUser) {
-            alert('User not found');
-            return;
-          }
-          
-          // Now add the user using their ID
-          await axios.post(`/users/${userId}/groups/${this.id}/members`, { 
-            userId: targetUser.id 
-          });
-          
-          // Reload group data to show new member
-          await this.loadGroup();
-        } catch (error) {
-          console.error('Error adding member:', error);
-          const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-          alert(`Failed to add member: ${errorMessage}`);
         }
-      }
+      );
     },
 
     async removeMember(participant) {
-      if (confirm(`Are you sure you want to remove ${participant.username} from this group?`)) {
-        try {
-          const userId = AuthService.getUserId();
-          if (!userId) {
-            console.error('Could not get current user ID');
-            return;
+      this.showConfirmation(
+        'Remove Member',
+        `Are you sure you want to remove ${participant.username} from this group?`,
+        async () => {
+          try {
+            const userId = AuthService.getUserId();
+            if (!userId) {
+              console.error('Could not get current user ID');
+              return;
+            }
+            
+            await axios.delete(`/users/${userId}/groups/${this.id}/members/${participant.id}`);
+            
+            // Reload group data to show updated member list
+            await this.loadGroup();
+          } catch (error) {
+            console.error('Error removing member:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+            this.showNotification('error', 'Remove Member Failed', `Failed to remove member: ${errorMessage}`);
           }
-          
-          await axios.delete(`/users/${userId}/groups/${this.id}/members/${participant.id}`);
-          
-          // Reload group data to show updated member list
-          await this.loadGroup();
-        } catch (error) {
-          console.error('Error removing member:', error);
-          const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-          alert(`Failed to remove member: ${errorMessage}`);
         }
-      }
+      );
     },
 
     async leaveGroup() {
-      if (confirm(`Are you sure you want to leave this group?`)) {
-        try {
-          const userId = AuthService.getUserId();
-          if (!userId) {
-            console.error('Could not get current user ID');
-            return;
+      this.showConfirmation(
+        'Leave Group',
+        'Are you sure you want to leave this group?',
+        async () => {
+          try {
+            const userId = AuthService.getUserId();
+            if (!userId) {
+              console.error('Could not get current user ID');
+              return;
+            }
+            
+            await axios.delete(`/users/${userId}/groups/${this.id}/members`);
+            
+            // Redirect back to chat view or home
+            this.$router.push('/');
+          } catch (error) {
+            console.error('Error leaving group:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+            this.showNotification('error', 'Leave Group Failed', `Failed to leave group: ${errorMessage}`);
           }
-          
-          await axios.delete(`/users/${userId}/groups/${this.id}/members`);
-          
-          // Redirect back to chat view or home
-          this.$router.push('/');
-        } catch (error) {
-          console.error('Error leaving group:', error);
-          const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-          alert(`Failed to leave group: ${errorMessage}`);
         }
-      }
+      );
     },
 
     goToChat() {
       // Navigate to the chat view for this conversation
       this.$router.push(`/chat/${this.id}`);
+    },
+
+    // === MODAL HELPERS ===
+    showNotification(type, title, message) {
+      this.notificationModal = {
+        show: true,
+        type,
+        title,
+        message
+      };
+    },
+
+    closeNotificationModal() {
+      this.notificationModal.show = false;
+    },
+
+    showConfirmation(title, message, callback) {
+      this.confirmationModal = {
+        show: true,
+        title,
+        message,
+        confirmCallback: callback
+      };
+    },
+
+    confirmAction() {
+      if (this.confirmationModal.confirmCallback) {
+        this.confirmationModal.confirmCallback();
+      }
+      this.confirmationModal.show = false;
+    },
+
+    cancelConfirmation() {
+      this.confirmationModal.show = false;
+    },
+
+    showInput(title, message, placeholder, defaultValue, callback) {
+      this.inputModal = {
+        show: true,
+        title,
+        message,
+        placeholder,
+        defaultValue,
+        confirmCallback: callback
+      };
+    },
+
+    inputConfirm(value) {
+      if (this.inputModal.confirmCallback) {
+        this.inputModal.confirmCallback(value);
+      }
+      this.inputModal.show = false;
+    },
+
+    cancelInput() {
+      this.inputModal.show = false;
     },
 
     // Expose the getImageUrl function to the template

@@ -3,7 +3,7 @@
     <!-- Message content -->
     <div class="message-content">
       <!-- Sender name (only for group chats and non-own messages) -->
-      <div v-if="!isOwn && isGroupChat" class="message-sender">
+      <div v-if="!isOwn && isGroupChat" class="message-sender" :style="{ color: getSenderColor(message.senderUsername) }">
         {{ message.senderUsername }}
       </div>
 
@@ -40,14 +40,19 @@
           
           <!-- Message status for own messages -->
           <div v-if="isOwn" class="message-status">
-            <!-- Grey check for sent messages -->
-            <svg v-if="computedMessageStatus === 'sent'" class="feather status-icon status-sent">
+            <!-- Single grey check for sent messages -->
+            <svg v-if="computedMessageStatus === 'sent'" class="feather status-icon">
               <use href="/feather-sprite-v4.29.0.svg#check" />
             </svg>
-            <!-- Bold green check for read messages (both group and direct) -->
-            <svg v-else-if="computedMessageStatus === 'read'" class="feather status-icon status-read">
-              <use href="/feather-sprite-v4.29.0.svg#check" />
-            </svg>
+            <!-- Double check for read messages -->
+            <div v-else-if="computedMessageStatus === 'read'" class="double-check">
+              <svg class="feather status-icon">
+                <use href="/feather-sprite-v4.29.0.svg#check" />
+              </svg>
+              <svg class="feather status-icon check-second">
+                <use href="/feather-sprite-v4.29.0.svg#check" />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
@@ -111,6 +116,7 @@
 
 <script>
 import { getImageUrl } from '../../utils/imageUtils.js';
+import { getUsernameColor } from '../../utils/colorUtils.js';
 import ReactionListModal from '../modals/ReactionListModal.vue';
 import axios from '../../services/axios.js';
 
@@ -134,7 +140,7 @@ export default {
       default: () => []
     }
   },
-  emits: ['reply', 'react', 'delete'],
+  emits: ['reply', 'react', 'delete', 'forward', 'refresh-message'],
   components: {
     ReactionListModal
   },
@@ -195,6 +201,10 @@ export default {
   methods: {
     getImageUrl,
     
+    getSenderColor(username) {
+      return getUsernameColor(username);
+    },
+    
     formatTime(timestamp) {
       const date = new Date(timestamp);
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -219,7 +229,7 @@ export default {
         const userId = this.currentUserId;
         await axios.delete(`/users/${userId}/messages/${this.message.id}/comments/${reaction.id}`);
         // Refresh reactions: emit event or reload message
-        this.$emit('refreshMessage', this.message.id);
+        this.$emit('refresh-message', this.message.id);
         this.showReactionsModal = false;
       } catch (err) {
         alert('Failed to remove reaction.');
@@ -383,16 +393,18 @@ export default {
   width: 12px;
   height: 12px;
   color: rgba(255, 255, 255, 0.8);
-}
-
-.status-icon.status-sent {
-  color: rgba(255, 255, 255, 0.5);
   stroke-width: 2;
 }
 
-.status-icon.status-read {
-  color: #00ff00;
-  stroke-width: 3;
+.double-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.double-check .check-second {
+  margin-left: -8px;
+  z-index: 1;
 }
 
 /* Reactions */

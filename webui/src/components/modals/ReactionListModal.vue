@@ -1,4 +1,3 @@
-import AuthService from '../../services/auth.js';
 <template>
   <div class="modal-backdrop" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:2100;display:flex;align-items:center;justify-content:center;">
     <div class="modal-dialog" style="background:white;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,0.15);max-width:320px;width:100%;">
@@ -24,6 +23,8 @@ import AuthService from '../../services/auth.js';
 </template>
 
 <script>
+import AuthService from '../../services/auth.js';
+
 export default {
   name: 'ReactionListModal',
   props: {
