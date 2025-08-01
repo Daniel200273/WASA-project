@@ -122,6 +122,9 @@ import axios from '../../services/axios.js';
 
 export default {
   name: 'MessageItem',
+  components: {
+    ReactionListModal
+  },
   props: {
     message: {
       type: Object,
@@ -141,9 +144,6 @@ export default {
     }
   },
   emits: ['reply', 'react', 'delete', 'forward', 'refresh-message'],
-  components: {
-    ReactionListModal
-  },
   data() {
     return {
       showReactionPicker: false,

@@ -18,14 +18,14 @@
           class="modal-input"
           @keyup.enter="confirm"
           @keyup.escape="$emit('cancel')"
-        />
+        >
       </div>
       
       <div class="modal-footer">
         <button class="modal-btn secondary" @click="$emit('cancel')">
           Cancel
         </button>
-        <button class="modal-btn primary" @click="confirm" :disabled="!inputValue.trim()">
+        <button class="modal-btn primary" :disabled="!inputValue.trim()" @click="confirm">
           Confirm
         </button>
       </div>
@@ -54,6 +54,7 @@ export default {
       default: ''
     }
   },
+  emits: ['cancel', 'confirm'],
   data() {
     return {
       inputValue: this.defaultValue

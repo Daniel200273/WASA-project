@@ -4,7 +4,7 @@
       <div class="modal-content" style="padding:1.25rem;">
         <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
           <h5 class="modal-title">Reactions</h5>
-          <button type="button" class="close" @click="$emit('close')" style="background:none;border:none;font-size:1.5rem;">&times;</button>
+          <button type="button" class="close" style="background:none;border:none;font-size:1.5rem;" @click="$emit('close')">&times;</button>
         </div>
         <div class="modal-body">
           <ul class="reaction-list" style="padding:0;list-style:none;">
@@ -33,16 +33,17 @@ export default {
       required: true
     }
   },
-  methods: {
-    isOwnReaction(reaction) {
-      // Use currentUserId from prop or computed only
-      return reaction.userId === this.currentUserId;
-    }
-  },
+  emits: ['close', 'remove'],
   computed: {
     currentUserId() {
       // Always use AuthService for user ID
       return AuthService.getUserId();
+    }
+  },
+  methods: {
+    isOwnReaction(reaction) {
+      // Use currentUserId from prop or computed only
+      return reaction.userId === this.currentUserId;
     }
   }
 }

@@ -148,7 +148,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 		conv.UnreadCount = unreadCount
 
 		// For group conversations, calculate if it's read by all members
-		if conv.Type == "group" {
+		if conv.Type == ConversationTypeGroup {
 			isReadByAll, err := db.IsReadByAllGroupMembers(conv.ID, conv.LastMessageAt)
 			if err != nil {
 				// If there's an error, default to false
@@ -236,7 +236,7 @@ func (db *appdbimpl) GetConversation(conversationID, userID string) (*Conversati
 	conv.UnreadCount = unreadCount
 
 	// For group conversations, calculate if it's read by all members
-	if conv.Type == "group" {
+	if conv.Type == ConversationTypeGroup {
 		// Get the last message timestamp for this conversation
 		lastMessageQuery := `
 			SELECT MAX(created_at) FROM messages WHERE conversation_id = ?

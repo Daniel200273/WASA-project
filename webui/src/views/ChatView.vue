@@ -118,19 +118,19 @@
             <div v-else class="messages-list">
               <!-- Individual messages -->
               <div v-for="message in messages" :key="message.id" class="message-wrapper">
-            <MessageItem 
-              :message="message"
-              :is-own="message.senderId === currentUserId"
-              :show-sender="shouldShowSender(message)"
-              :is-group-chat="selectedConversation?.type === 'group'"
-              :conversation-read-at="conversationReadAt"
-              :all-messages="messages"
-              @reply="replyToMessage"
-              @react="reactToMessage"
-              @delete="deleteMessage"
-              @forward="forwardMessage"
-              @refresh-message="handleRefreshMessage"
-            />
+                <MessageItem 
+                  :message="message"
+                  :is-own="message.senderId === currentUserId"
+                  :show-sender="shouldShowSender(message)"
+                  :is-group-chat="selectedConversation?.type === 'group'"
+                  :conversation-read-at="conversationReadAt"
+                  :all-messages="messages"
+                  @reply="replyToMessage"
+                  @react="reactToMessage"
+                  @delete="deleteMessage"
+                  @forward="forwardMessage"
+                  @refresh-message="handleRefreshMessage"
+                />
               </div>
 
               <!-- Empty state -->
@@ -220,7 +220,7 @@ export default {
   data() {
     return {
       // Component lifecycle
-      _isDestroyed: false,
+      isComponentDestroyed: false,
       
       // Conversations
       conversations: [],
@@ -360,14 +360,14 @@ export default {
     }
   },
   beforeUnmount() {
-    this._isDestroyed = true; // Mark component as destroyed
+    this.isComponentDestroyed = true; // Mark component as destroyed
     this.stopSmartPolling();
     this.removeActivityListeners();
   },
   methods: {
     // === CONVERSATION MANAGEMENT ===
     async loadConversations() {
-      if (this._isDestroyed) return;
+      if (this.isComponentDestroyed) return;
       
       try {
         this.conversationsLoading = true;
@@ -376,7 +376,7 @@ export default {
         const response = await axios.get(`/users/${userId}/conversations`);
         
         // Check if component is still mounted before updating reactive data
-        if (this._isDestroyed) return;
+        if (this.isComponentDestroyed) return;
         
         const newConversations = response.data.conversations || [];
         
@@ -403,7 +403,7 @@ export default {
     },
 
     async loadConversationMessages(conversationId) {
-      if (!conversationId || this._isDestroyed) return;
+      if (!conversationId || this.isComponentDestroyed) return;
       
       try {
         this.messagesLoading = true;
@@ -412,7 +412,7 @@ export default {
         const response = await axios.get(`/users/${userId}/conversations/${conversationId}`);
         
         // Check if component is still mounted before updating reactive data
-        if (this._isDestroyed) return;
+        if (this.isComponentDestroyed) return;
         
         this.selectedConversation = response.data;
         this.messages = response.data.messages || [];
@@ -484,12 +484,12 @@ export default {
     },
 
     setupActivityListeners() {
-      if (this._isDestroyed) return;
+      if (this.isComponentDestroyed) return;
       
       const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
       
       this.updateActivity = () => {
-        if (this._isDestroyed) return;
+        if (this.isComponentDestroyed) return;
         this.lastActivity = Date.now();
         this.isUserActive = true;
       };
@@ -501,7 +501,7 @@ export default {
       
       // Check for inactivity every 30 seconds
       this.inactivityChecker = setInterval(() => {
-        if (this._isDestroyed) return;
+        if (this.isComponentDestroyed) return;
         
         const now = Date.now();
         const timeSinceActivity = now - this.lastActivity;
@@ -529,7 +529,7 @@ export default {
     },
 
     handleVisibilityChange() {
-      if (this._isDestroyed) return;
+      if (this.isComponentDestroyed) return;
       
       this.isTabVisible = !document.hidden;
       
@@ -559,7 +559,7 @@ export default {
     },
 
     scheduleNextPoll() {
-      if (this._isDestroyed) return;
+      if (this.isComponentDestroyed) return;
       
       const interval = this.optimalPollingInterval;
       
@@ -576,7 +576,7 @@ export default {
     },
 
     async performSmartPoll() {
-      if (this._isDestroyed || this.conversationsLoading || this.messagesLoading) {
+      if (this.isComponentDestroyed || this.conversationsLoading || this.messagesLoading) {
         return;
       }
 
@@ -613,7 +613,7 @@ export default {
         const userId = AuthService.getUserId();
         const response = await axios.get(`/users/${userId}/conversations`);
         
-        if (this._isDestroyed) return;
+        if (this.isComponentDestroyed) return;
         
         const newConversations = response.data.conversations || [];
         
@@ -628,7 +628,7 @@ export default {
     },
 
     async loadNewMessages() {
-      if (!this.selectedConversationId || this._isDestroyed) return;
+      if (!this.selectedConversationId || this.isComponentDestroyed) return;
       
       try {
         // Store current message count and scroll position for comparison
@@ -641,7 +641,7 @@ export default {
         // This is more reliable than incremental loading
         const response = await axios.get(`/users/${userId}/conversations/${this.selectedConversationId}`);
         
-        if (this._isDestroyed) return;
+        if (this.isComponentDestroyed) return;
         
         const freshMessages = response.data.messages || [];
         
@@ -848,7 +848,7 @@ export default {
         await axios.delete(`/users/${userId}/messages/${message.id}`);
         
         // Only update state if component is still mounted
-        if (!this._isDestroyed) {
+        if (!this.isComponentDestroyed) {
           // Remove from local state
           this.messages = this.messages.filter(m => m.id !== message.id);
         }
@@ -866,7 +866,7 @@ export default {
         });
         
         // Only refresh if component is still mounted
-        if (!this._isDestroyed && this.selectedConversationId) {
+        if (!this.isComponentDestroyed && this.selectedConversationId) {
           // Refresh messages to show new reaction
           await this.loadConversationMessages(this.selectedConversationId);
         }
@@ -878,7 +878,7 @@ export default {
 
     async handleRefreshMessage(messageId) {
       // Refresh the conversation messages to update reactions
-      if (!this._isDestroyed && this.selectedConversationId) {
+      if (!this.isComponentDestroyed && this.selectedConversationId) {
         try {
           await this.loadConversationMessages(this.selectedConversationId);
         } catch (error) {

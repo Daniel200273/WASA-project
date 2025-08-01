@@ -4,14 +4,14 @@
       <div class="modal-content" style="padding:1.5rem;">
         <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
           <h5 class="modal-title">Forward Message</h5>
-          <button type="button" class="close" @click="$emit('cancel')" style="background:none;border:none;font-size:1.5rem;">&times;</button>
+          <button type="button" class="close" style="background:none;border:none;font-size:1.5rem;" @click="$emit('cancel')">&times;</button>
         </div>
         <div class="modal-body">
           <p>Select a conversation to forward this message to:</p>
           <ul class="list-group" style="padding:0;list-style:none;">
             <li v-for="conv in conversations" :key="conv.id" class="list-group-item" style="margin-bottom:0.5rem;display:flex;align-items:center;justify-content:space-between;padding:0.5rem;border:1px solid #dee2e6;border-radius:4px;">
               <span style="font-weight:500;">{{ conv.name }}</span>
-              <button class="btn btn-sm btn-primary" @click="$emit('confirm', conv.id)" style="padding:0.25rem 0.75rem;">
+              <button class="btn btn-sm btn-primary" style="padding:0.25rem 0.75rem;" @click="$emit('confirm', conv.id)">
                 Forward
               </button>
             </li>
@@ -30,7 +30,8 @@ export default {
       type: Array,
       required: true
     }
-  }
+  },
+  emits: ['cancel', 'confirm']
 }
 </script>
 
