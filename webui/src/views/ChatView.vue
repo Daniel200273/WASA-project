@@ -58,6 +58,7 @@
                 </div>
                 <p v-if="conversation.lastMessage" class="last-message">
                   <span v-if="isLastMessageFromCurrentUser(conversation)" class="you-prefix">You: </span>
+                  <span v-else-if="conversation.type === 'group' && conversation.lastMessage.senderUsername" class="sender-prefix">{{ conversation.lastMessage.senderUsername }}: </span>
                   {{ conversation.lastMessage.content || 'Photo' }}
                 </p>
                 <p v-else class="no-messages">No messages yet</p>
@@ -179,6 +180,7 @@
       :conversations="conversations"
       @confirm="confirmForward"
       @cancel="cancelForward"
+      @forward-to-user="forwardToNewUser"
     />
     <NotificationModal
       v-if="notificationModal.show"
@@ -261,7 +263,8 @@ export default {
       
       // Activity tracking
       updateActivity: null,
-      inactivityChecker: null
+      inactivityChecker: null,
+      lastReadMarkTime: 0 // Track when we last marked conversation as read
     }
   },
   computed: {
@@ -601,6 +604,12 @@ export default {
             await this.loadNewMessages();
             this.lastMessagesUpdate = now;
           }
+          
+          // Periodically ensure conversation is marked as read during active viewing
+          // This helps with checkmark updates even when no new messages arrive
+          if (this.isUserActive && this.isTabVisible) {
+            await this.ensureConversationMarkedAsRead();
+          }
         }
       } catch (error) {
         console.error('Smart polling error:', error);
@@ -653,12 +662,22 @@ export default {
           hasNewMessages: freshMessages.length > currentMessageCount
         });
         
-        // Check if there are new messages
-        if (freshMessages.length > currentMessageCount) {
-          console.log('New messages detected, updating chat view');
+        // Check if there are new messages OR if message status might have changed
+        const hasNewMessages = freshMessages.length > currentMessageCount;
+        const shouldUpdateStatus = this.shouldCheckForStatusUpdates(freshMessages);
+        
+        if (hasNewMessages || shouldUpdateStatus) {
+          if (hasNewMessages) {
+            console.log('New messages detected, updating chat view');
+          } else {
+            console.log('Potential message status changes detected, updating chat view');
+          }
           
           // Update messages array with fresh data
           this.messages = freshMessages;
+          
+          // Ensure conversation is marked as read since user is actively viewing it
+          await this.ensureConversationMarkedAsRead();
           
           // Clear unread count since user is viewing the conversation
           const conversation = this.conversations.find(c => c.id === this.selectedConversationId);
@@ -692,6 +711,13 @@ export default {
           // Messages were deleted, update the entire view
           console.log('Messages were deleted, refreshing chat view');
           this.messages = freshMessages;
+        } else if (shouldUpdateStatus) {
+          // No new messages, but status might have changed (e.g., read receipts)
+          console.log('Message status updated, refreshing message display');
+          this.messages = freshMessages;
+          
+          // Don't auto-scroll for status updates
+          // Users shouldn't lose their scroll position just for checkmark updates
         }
         
       } catch (error) {
@@ -787,6 +813,9 @@ export default {
         if (photo) {
           const formData = new FormData();
           formData.append('photo', photo);
+          if (content && content.trim()) {
+            formData.append('content', content.trim());
+          }
           if (this.replyingTo) {
             formData.append('replyTo', this.replyingTo.id);
           }
@@ -824,6 +853,14 @@ export default {
         this.lastActivity = Date.now();
         this.isUserActive = true;
         
+        // Schedule a status update check shortly after sending
+        // This helps with quick checkmark updates when the recipient reads the message
+        setTimeout(() => {
+          if (!this.isComponentDestroyed && this.selectedConversationId) {
+            this.loadNewMessages();
+          }
+        }, 2000); // Check again in 2 seconds for status updates
+        
         this.$nextTick(() => {
           this.scrollToBottom();
         });
@@ -836,8 +873,8 @@ export default {
       }
     },
 
-    async sendPhoto(photo) {
-      await this.sendMessage(null, photo);
+    async sendPhoto(photo, caption = null) {
+      await this.sendMessage(caption, photo);
     },
 
     async deleteMessage(message) {
@@ -1073,6 +1110,81 @@ export default {
       }
     },
 
+    async forwardToNewUser(user) {
+      if (!this.forwardingMessage || !user) return;
+      try {
+        const userId = AuthService.getUserId();
+        
+        // First, create or get conversation with the user
+        const conversationResponse = await axios.post(`/users/${userId}/conversations`, {
+          userId: user.id
+        });
+        
+        // Then forward the message to that conversation
+        await axios.post(
+          `/users/${userId}/messages/${this.forwardingMessage.id}/forward`,
+          { conversationId: conversationResponse.data.id }
+        );
+        
+        this.showForwardModal = false;
+        this.forwardingMessage = null;
+        this.showNotification('success', 'Message Forwarded', `Message forwarded to ${user.username}!`);
+        
+        // Optionally, refresh conversations to show the new chat
+        await this.loadConversations();
+        
+      } catch (error) {
+        console.error('Error forwarding message to new user:', error);
+        this.showNotification('error', 'Forward Failed', 'Failed to forward message to new user.');
+      }
+    },
+
+    // Helper method to ensure conversation is marked as read by making a strategic call to getConversation
+    async ensureConversationMarkedAsRead() {
+      if (!this.selectedConversationId || this.isComponentDestroyed) return;
+      
+      // Only mark as read if we haven't done so recently (avoid too frequent calls)
+      const now = Date.now();
+      if (this.lastReadMarkTime && (now - this.lastReadMarkTime) < 30000) {
+        return; // Skip if we marked as read less than 30 seconds ago
+      }
+      
+      try {
+        const userId = AuthService.getUserId();
+        // Make a call to getConversation which automatically marks it as read
+        await axios.get(`/users/${userId}/conversations/${this.selectedConversationId}`);
+        this.lastReadMarkTime = now;
+      } catch (error) {
+        // Don't show error to user, just log it - this is not critical functionality
+        console.warn('Failed to mark conversation as read via getConversation:', error);
+      }
+    },
+
+    // Check if message status might have changed (for checkmark updates)
+    shouldCheckForStatusUpdates(freshMessages) {
+      // If we don't have current messages, no comparison possible
+      if (!this.messages || this.messages.length === 0) {
+        return false;
+      }
+      
+      // If message counts are different, new messages method will handle it
+      if (freshMessages.length !== this.messages.length) {
+        return false;
+      }
+      
+      // Check if any message status has changed
+      for (let i = 0; i < this.messages.length; i++) {
+        const currentMsg = this.messages[i];
+        const freshMsg = freshMessages[i];
+        
+        if (currentMsg.id === freshMsg.id && currentMsg.status !== freshMsg.status) {
+          return true; // Status changed
+        }
+      }
+      
+      return false;
+    },
+
     cancelForward() {
       this.showForwardModal = false;
       this.forwardingMessage = null;
@@ -1262,6 +1374,11 @@ export default {
 
 .you-prefix {
   color: #007bff;
+  font-weight: 500;
+}
+
+.sender-prefix {
+  color: #6c757d;
   font-weight: 500;
 }
 

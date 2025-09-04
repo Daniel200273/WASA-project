@@ -47,8 +47,8 @@ func (db *appdbimpl) CreateGroup(name, createdBy string, memberIDs []string) (*C
 	// 3. Add creator to the group as participant
 	_, err = tx.Exec(`
 		INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_read_at)
-		VALUES (?, ?, ?, ?)`,
-		groupID, createdBy, now, now)
+		VALUES (?, ?, ?, NULL)`,
+		groupID, createdBy, now)
 	if err != nil {
 		return nil, fmt.Errorf("error adding creator to group: %w", err)
 	}
@@ -57,8 +57,8 @@ func (db *appdbimpl) CreateGroup(name, createdBy string, memberIDs []string) (*C
 	for _, memberID := range memberIDs {
 		_, err = tx.Exec(`
 			INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_read_at)
-			VALUES (?, ?, ?, ?)`,
-			groupID, memberID, now, now)
+			VALUES (?, ?, ?, NULL)`,
+			groupID, memberID, now)
 		if err != nil {
 			return nil, fmt.Errorf("error adding member %s to group: %w", memberID, err)
 		}
@@ -108,8 +108,8 @@ func (db *appdbimpl) AddUserToGroup(groupID, userID string) error {
 	now := time.Now()
 	_, err = db.c.Exec(`
 		INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_read_at)
-		VALUES (?, ?, ?, ?)`,
-		groupID, userID, now, now)
+		VALUES (?, ?, ?, NULL)`,
+		groupID, userID, now)
 	if err != nil {
 		return fmt.Errorf("error adding user to group: %w", err)
 	}

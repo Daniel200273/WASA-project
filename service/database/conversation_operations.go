@@ -17,7 +17,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 		FROM conversations c
 		JOIN conversation_participants cp ON c.id = cp.conversation_id
 		WHERE cp.user_id = ?
-		ORDER BY c.last_message_at DESC
+		ORDER BY COALESCE(c.last_message_at, c.created_at) DESC
 	`
 	rows, err := db.c.Query(query, userID)
 	if err != nil {
@@ -130,6 +130,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 
 		// Get unread count for the conversation
 		// Count messages newer than the user's last_read_at timestamp
+		// If last_read_at is NULL (never read), count all messages from others
 		unreadQuery := `
 			SELECT COUNT(m.id)
 			FROM messages m
@@ -137,7 +138,7 @@ func (db *appdbimpl) GetUserConversations(userID string) ([]ConversationPreview,
 			WHERE m.conversation_id = ? 
 			AND cp.user_id = ?
 			AND m.sender_id != ?
-			AND m.created_at > cp.last_read_at
+			AND (cp.last_read_at IS NULL OR m.created_at > cp.last_read_at)
 		`
 		var unreadCount int
 		err = db.c.QueryRow(unreadQuery, conv.ID, userID, userID).Scan(&unreadCount)
@@ -225,7 +226,7 @@ func (db *appdbimpl) GetConversation(conversationID, userID string) (*Conversati
 		WHERE m.conversation_id = ? 
 		AND cp.user_id = ?
 		AND m.sender_id != ?
-		AND m.created_at > cp.last_read_at
+		AND (cp.last_read_at IS NULL OR m.created_at > cp.last_read_at)
 	`
 	var unreadCount int
 	err = db.c.QueryRow(unreadQuery, conv.ID, userID, userID).Scan(&unreadCount)
@@ -297,8 +298,8 @@ func (db *appdbimpl) GetOrCreateDirectConversation(user1ID, user2ID string) (*Co
 
 	// Insert the new conversation
 	createQuery := `
-		INSERT INTO conversations (id, type, created_by, created_at) 
-		VALUES (?, 'direct', ?, CURRENT_TIMESTAMP)
+		INSERT INTO conversations (id, type, created_by, created_at, last_message_at) 
+		VALUES (?, 'direct', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 	_, err = tx.Exec(createQuery, conversationID, user1ID)
 	if err != nil {
@@ -311,7 +312,7 @@ func (db *appdbimpl) GetOrCreateDirectConversation(user1ID, user2ID string) (*Co
 	// 4. Add both users as participants
 	addParticipantQuery := `
 		INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_read_at)
-		VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		VALUES (?, ?, CURRENT_TIMESTAMP, NULL)
 	`
 	_, err = tx.Exec(addParticipantQuery, conversationID, user1ID)
 	if err != nil {
@@ -349,4 +350,29 @@ func (db *appdbimpl) IsUserInConversation(conversationID, userID string) (bool, 
 	}
 
 	return count > 0, nil
+}
+
+// MarkConversationAsRead updates the last_read_at timestamp for a user in a conversation
+func (db *appdbimpl) MarkConversationAsRead(conversationID, userID string) error {
+	query := `
+		UPDATE conversation_participants 
+		SET last_read_at = CURRENT_TIMESTAMP 
+		WHERE conversation_id = ? AND user_id = ?
+	`
+
+	result, err := db.c.Exec(query, conversationID, userID)
+	if err != nil {
+		return fmt.Errorf("error marking conversation as read: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking affected rows: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no conversation participation found for user %s in conversation %s", userID, conversationID)
+	}
+
+	return nil
 }

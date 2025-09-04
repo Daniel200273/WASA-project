@@ -3,6 +3,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { computed, ref } from 'vue'
 import AuthService from './services/auth.js'
 import UserSearchModal from './components/modals/UserSearchModal.vue'
+import axios from './services/axios.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,9 +16,25 @@ const showUserSearch = ref(false)
 const showGroupCreate = ref(false)
 
 // Modal handlers
-const handleUserSelect = (user) => {
-  // Handle user selection (e.g., start conversation)
-  showUserSearch.value = false
+const handleUserSelect = async (user) => {
+  try {
+    // Close the modal first
+    showUserSearch.value = false
+    
+    const userId = AuthService.getUserId();
+    
+    // Create or get conversation with the selected user
+    const response = await axios.post(`/users/${userId}/conversations`, {
+      userId: user.id
+    });
+    
+    // Navigate to the conversation in chat view
+    router.push(`/chat/${response.data.id}`)
+    
+  } catch (error) {
+    console.error('Error starting conversation:', error)
+    showUserSearch.value = false
+  }
 }
 
 const handleGroupCreate = (groupData) => {

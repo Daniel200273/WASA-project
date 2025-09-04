@@ -42,8 +42,10 @@ export default {
   },
   methods: {
     isOwnReaction(reaction) {
-      // Use currentUserId from prop or computed only
-      return reaction.userId === this.currentUserId;
+      // Compare the reaction's userId with current user's ID
+      const currentId = this.currentUserId;
+      console.log('Checking reaction ownership:', { reactionUserId: reaction.userId, currentUserId: currentId });
+      return reaction.userId === currentId;
     }
   }
 }

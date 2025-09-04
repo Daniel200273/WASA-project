@@ -64,14 +64,12 @@
           :key="reaction.emoticon"
           class="reaction-pill"
           :class="{ 'own-reaction': reaction.hasOwnReaction }"
-          @click="toggleReaction(reaction.emoticon)"
+          title="View reactions"
+          @click="showReactionsModal = true"
         >
           <span class="reaction-emoji">{{ reaction.emoticon }}</span>
           <span class="reaction-count">{{ reaction.count }}</span>
         </div>
-        <button class="action-btn" style="margin-left:8px;" title="Show all reactions" @click="showReactionsModal = true">
-          <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#users" /></svg>
-        </button>
         <ReactionListModal
           v-if="showReactionsModal"
           :reactions="message.comments"
@@ -213,10 +211,6 @@ export default {
     addReaction(emoji) {
       this.$emit('react', this.message, emoji);
       this.showReactionPicker = false;
-    },
-    
-    toggleReaction(emoji) {
-      this.$emit('react', this.message, emoji);
     },
     
     openPhotoModal() {
@@ -427,16 +421,23 @@ export default {
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.15s ease;
+  user-select: none;
 }
 
 .reaction-pill:hover {
   background-color: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .reaction-pill.own-reaction {
   background-color: #e3f2fd;
   border-color: #007bff;
   color: #007bff;
+}
+
+.reaction-pill.own-reaction:hover {
+  background-color: #bbdefb;
 }
 
 .reaction-emoji {

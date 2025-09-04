@@ -86,7 +86,7 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 		content = &req.Content
 		replyTo = req.ReplyTo
 	case strings.Contains(contentType, "multipart/form-data"):
-		// Photo message
+		// Photo message (with optional text content)
 		file, header, err := getUploadedFile(r, "photo")
 		if err != nil {
 			sendErrorResponse(w, http.StatusBadRequest, err.Error(), ctx)
@@ -106,6 +106,11 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 		}
 
 		photoURL = &savedPhotoURL
+
+		// Check for optional text content in form data
+		if contentStr := r.FormValue("content"); contentStr != "" {
+			content = &contentStr
+		}
 
 		// Check for optional replyTo in form data
 		if replyToStr := r.FormValue("replyTo"); replyToStr != "" {

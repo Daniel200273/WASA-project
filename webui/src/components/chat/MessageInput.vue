@@ -6,8 +6,8 @@
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#image" /></svg>
       </button>
 
-      <!-- Text input -->
-      <div class="text-input-wrapper">
+      <!-- Text input (hidden when photo is selected) -->
+      <div v-if="!selectedPhoto" class="text-input-wrapper">
         <textarea
           ref="textInput"
           v-model="messageText"
@@ -112,8 +112,8 @@ export default {
       if (this.disabled) return;
 
       if (this.selectedPhoto) {
-        // Send photo message
-        this.$emit('send-photo', this.selectedPhoto);
+        // Send photo message only (no text caption)
+        this.$emit('send-photo', this.selectedPhoto, null);
         this.resetInput();
       } else if (this.messageText.trim()) {
         // Send text message
@@ -146,6 +146,9 @@ export default {
 
       this.selectedPhoto = file;
       this.photoPreviewUrl = URL.createObjectURL(file);
+
+      // Clear message text since it won't be visible/editable with photo
+      this.messageText = '';
 
       // Clear the input so the same file can be selected again
       event.target.value = '';
@@ -191,30 +194,33 @@ export default {
 .input-container {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   background-color: #f8f9fa;
   border-radius: 24px;
-  padding: 0.5rem;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
 }
 
 /* Input action buttons */
 .input-action-btn {
-  background: none;
-  border: none;
-  padding: 0.5rem;
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  padding: 0.6rem;
   border-radius: 50%;
   cursor: pointer;
   color: #6c757d;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 .input-action-btn:hover:not(:disabled) {
-  background-color: #e9ecef;
+  background-color: #f8f9fa;
   color: #495057;
+  border-color: #dee2e6;
 }
 
 .input-action-btn:disabled {
@@ -264,10 +270,11 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: background-color 0.2s ease;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
+  margin-left: auto;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -275,9 +282,9 @@ export default {
 }
 
 .send-btn:disabled {
-  background-color: #6c757d;
+  background-color: #bdbdbd;
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .send-btn .feather {
@@ -287,54 +294,65 @@ export default {
 
 /* Photo preview */
 .photo-preview {
-  margin-top: 0.75rem;
-  border-radius: 12px;
-  background-color: #f8f9fa;
-  overflow: hidden;
+  margin-top: 1rem;
+  border-radius: 16px;
+  background-color: #ffffff;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
 }
 
 .photo-preview-container {
   position: relative;
-  max-width: 200px;
+  max-width: 240px;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .photo-preview-container img {
   width: 100%;
   height: auto;
+  max-height: 200px;
+  object-fit: cover;
   display: block;
-  border-radius: 8px;
 }
 
 .remove-photo {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background-color: rgba(0, 0, 0, 0.6);
+  top: 0.75rem;
+  right: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
   border: none;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   cursor: pointer;
-  color: white;
+  color: #d32f2f;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .remove-photo:hover {
-  background-color: rgba(0, 0, 0, 0.8);
+  background: rgba(255, 255, 255, 1);
 }
 
 .remove-photo .feather {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .photo-caption {
-  padding: 0.5rem;
-  font-size: 0.8rem;
+  padding: 0.75rem 0 0.25rem 0;
+  text-align: center;
+  font-size: 0.85rem;
   color: #6c757d;
+  font-weight: 500;
 }
 
 /* Responsive design */
