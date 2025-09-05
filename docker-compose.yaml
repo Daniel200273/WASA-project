@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  backend:
+    ports:
+      - "3000:3000"
+    image: docker.io/dani200273/wasa-backend
+    volumes:
+      - ./shared:/shared
+  frontend:
+    ports:
+      - "8080:80"
+    image: docker.io/dani200273/wasa-frontend
