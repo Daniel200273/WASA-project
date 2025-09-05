@@ -874,7 +874,76 @@ export default {
     },
 
     async sendPhoto(photo, caption = null) {
-      await this.sendMessage(caption, photo);
+      if (!this.selectedConversationId || this.sendingMessage) return;
+      
+      try {
+        this.sendingMessage = true;
+        const userId = AuthService.getUserId();
+        
+        // First, send the photo message
+        const formData = new FormData();
+        formData.append('photo', photo);
+        if (this.replyingTo) {
+          formData.append('replyTo', this.replyingTo.id);
+        }
+        
+        const photoResponse = await axios.post(
+          `/users/${userId}/conversations/${this.selectedConversationId}/messages`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+        
+        // Add the photo message to the messages array
+        this.messages.push(photoResponse.data);
+        
+        // If there's a caption, send it as a separate text message
+        if (caption && caption.trim()) {
+          const messageData = { content: caption.trim() };
+          // Don't include replyTo for the caption - it would confuse the conversation flow
+          
+          const textResponse = await axios.post(
+            `/users/${userId}/conversations/${this.selectedConversationId}/messages`,
+            messageData
+          );
+          
+          // Add the text message to the messages array
+          this.messages.push(textResponse.data);
+          
+          // Update conversation last message with the text message (more recent)
+          this.updateConversationLastMessage(textResponse.data);
+        } else {
+          // Update conversation last message with the photo message
+          this.updateConversationLastMessage(photoResponse.data);
+        }
+        
+        this.replyingTo = null;
+        
+        // Update read timestamp since sender is actively in the conversation
+        this.conversationReadAt = new Date().toISOString();
+        
+        // Reset polling timers after sending messages
+        this.lastMessagesUpdate = Date.now();
+        this.lastConversationsUpdate = Date.now();
+        this.lastActivity = Date.now();
+        this.isUserActive = true;
+        
+        // Schedule a status update check shortly after sending
+        setTimeout(() => {
+          if (!this.isComponentDestroyed && this.selectedConversationId) {
+            this.loadNewMessages();
+          }
+        }, 2000);
+        
+        this.$nextTick(() => {
+          this.scrollToBottom();
+        });
+        
+      } catch (error) {
+        console.error('Error sending photo/message:', error);
+        this.showNotification('error', 'Send Failed', 'Failed to send photo/message. Please try again.');
+      } finally {
+        this.sendingMessage = false;
+      }
     },
 
     async deleteMessage(message) {

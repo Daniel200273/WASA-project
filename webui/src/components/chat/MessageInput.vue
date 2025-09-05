@@ -6,12 +6,12 @@
         <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#image" /></svg>
       </button>
 
-      <!-- Text input (hidden when photo is selected) -->
-      <div v-if="!selectedPhoto" class="text-input-wrapper">
+      <!-- Text input -->
+      <div class="text-input-wrapper">
         <textarea
           ref="textInput"
           v-model="messageText"
-          :placeholder="placeholder"
+          :placeholder="selectedPhoto ? 'Add a caption...' : placeholder"
           :disabled="disabled"
           rows="1"
           class="text-input"
@@ -111,12 +111,16 @@ export default {
     sendMessage() {
       if (this.disabled) return;
 
-      if (this.selectedPhoto) {
-        // Send photo message only (no text caption)
+      if (this.selectedPhoto && this.messageText.trim()) {
+        // Send photo message with text caption
+        this.$emit('send-photo', this.selectedPhoto, this.messageText.trim());
+        this.resetInput();
+      } else if (this.selectedPhoto) {
+        // Send photo message without caption
         this.$emit('send-photo', this.selectedPhoto, null);
         this.resetInput();
       } else if (this.messageText.trim()) {
-        // Send text message
+        // Send text message only
         this.$emit('send-message', this.messageText.trim());
         this.resetInput();
       }

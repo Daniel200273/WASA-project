@@ -54,6 +54,23 @@ const closeUserSearch = () => {
 const closeGroupCreate = () => {
   showGroupCreate.value = false
 }
+
+// Function to close mobile sidebar menu
+const closeMobileSidebar = () => {
+  // Check if we're on mobile and the sidebar is open
+  const sidebarElement = document.getElementById('sidebarMenu')
+  if (sidebarElement && sidebarElement.classList.contains('show')) {
+    // Remove the 'show' class to close the sidebar
+    sidebarElement.classList.remove('show')
+    
+    // Also update the navbar toggler button state
+    const togglerButton = document.querySelector('.navbar-toggler')
+    if (togglerButton) {
+      togglerButton.classList.add('collapsed')
+      togglerButton.setAttribute('aria-expanded', 'false')
+    }
+  }
+}
 </script>
 
 <template>
@@ -75,13 +92,13 @@ const closeGroupCreate = () => {
             </h6>
             <ul class="nav flex-column">
               <li class="nav-item">
-                <RouterLink to="/chat" class="nav-link">
+                <RouterLink to="/chat" class="nav-link" @click="closeMobileSidebar">
                   <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#message-circle" /></svg>
                   Messages
                 </RouterLink>
               </li>
               <li class="nav-item">
-                <RouterLink to="/profile?type=user&id=me" class="nav-link">
+                <RouterLink to="/profile?type=user&id=me" class="nav-link" @click="closeMobileSidebar">
                   <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#user" /></svg>
                   My Profile
                 </RouterLink>
@@ -93,13 +110,13 @@ const closeGroupCreate = () => {
             </h6>
             <ul class="nav flex-column">
               <li class="nav-item">
-                <a href="#" class="nav-link" @click.prevent="showUserSearch = true">
+                <a href="#" class="nav-link" @click.prevent="showUserSearch = true; closeMobileSidebar()">
                   <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#search" /></svg>
                   Find Users
                 </a>
               </li>
               <li class="nav-item">
-                <a href="#" class="nav-link" @click.prevent="showGroupCreate = true">
+                <a href="#" class="nav-link" @click.prevent="showGroupCreate = true; closeMobileSidebar()">
                   <svg class="feather"><use href="/feather-sprite-v4.29.0.svg#users" /></svg>
                   Create Group
                 </a>
