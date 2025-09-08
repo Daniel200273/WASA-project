@@ -1,5 +1,5 @@
 # Create a first temporary image named "builder"
-FROM node:lts AS builder
+FROM node:18 AS builder
 
 # Set working directory
 WORKDIR /app

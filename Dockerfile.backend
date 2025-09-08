@@ -8,6 +8,18 @@ RUN go build -o /app/webapi ./cmd/webapi
 
 # Create final container
 FROM debian:bookworm
+
+# Install required packages and create directories with proper permissions
+RUN apt-get update && apt-get install -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /tmp/uploads/profiles && \
+    mkdir -p /app/tmp/uploads/profiles && \
+    chmod 777 /tmp && \
+    chmod 777 /app && \
+    chmod 777 /app/tmp && \
+    chmod 777 /app/tmp/uploads && \
+    chmod 777 /app/tmp/uploads/profiles
+
 # Inform Docker about which port is used
 EXPOSE 3000
 # Copy the executable from the "builder" image
